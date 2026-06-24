@@ -20,7 +20,7 @@ class AddisAI:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 60.0,
-        max_retries: int = 2,
+        max_retries: int = 3,
         default_headers: Optional[Dict[str, str]] = None,
         default_query: Optional[Dict[str, str]] = None,
         http_client: Optional[httpx.Client] = None,

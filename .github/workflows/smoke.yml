@@ -1,0 +1,22 @@
+name: smoke
+
+# Live smoke test against the real API. NOT a PR gate — manual + scheduled only.
+# Requires repo secret ADDIS_SMOKE_API_KEY (a low-balance sandbox key).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'Addis-AI-Org' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: python scripts/smoke.py
+        env:
+          ADDIS_API_KEY: ${{ secrets.ADDIS_SMOKE_API_KEY }}

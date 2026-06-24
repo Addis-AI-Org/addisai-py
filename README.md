@@ -166,6 +166,13 @@ except APIError as e:
 
 An async client (`AsyncAddisAI`) is the one planned follow‑up. Everything else — including streaming — is at parity with the Node SDK.
 
+## Live smoke test
+
+`scripts/smoke.py` exercises the real API end-to-end. It is **not** a PR gate —
+the `smoke` workflow runs on manual dispatch and a daily schedule, only where the
+repo secret `ADDIS_SMOKE_API_KEY` (a low-balance sandbox key) is set. Run locally
+with `ADDIS_API_KEY=<key> python scripts/smoke.py`.
+
 ## License
 
 MIT

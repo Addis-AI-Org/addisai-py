@@ -291,3 +291,18 @@ def test_retries_once_on_500():
     out = addis.translate.create(text="Hi", source="en", target="am")
     assert len(calls) == 2
     assert out["text"] == "ok"
+
+
+def test_retries_twice_on_503_then_succeeds():
+    state = {"n": 0}
+
+    def handler(req):
+        state["n"] += 1
+        if state["n"] <= 2:
+            return json_response({"error": {"code": "warming", "message": "warming up"}}, status=503)
+        return json_response({"status": "success", "data": {"translation": "ok", "source_language": "en", "target_language": "am", "quality": None}})
+
+    addis, calls = client_with(handler)
+    out = addis.translate.create(text="Hi", source="en", target="am")
+    assert len(calls) == 3  # default budget now 3
+    assert out["text"] == "ok"
