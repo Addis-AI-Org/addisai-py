@@ -1,9 +1,8 @@
 name: publish
 
-# Publishes `addisai` to PyPI via Trusted Publishing (OIDC, no API token).
+# Publishes `addisai` to PyPI using the PYPI_API_TOKEN repository secret.
 # Create a GitHub Release (tag e.g. v0.1.0) to trigger, or run manually.
-# Configure a PyPI "pending publisher" first: project=addisai,
-# owner/repo=<your repo>, workflow=publish.yml, environment=pypi.
+# (Consider migrating to PyPI Trusted Publishing/OIDC later — then drop the token.)
 on:
   release:
     types: [published]
@@ -12,9 +11,6 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write # PyPI Trusted Publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,3 +20,5 @@ jobs:
       - run: pytest -q
       - run: python -m build
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
