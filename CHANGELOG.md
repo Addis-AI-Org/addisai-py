@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- **Docs:** correct the homepage/brand link to `https://addisassistant.com`
+  (was a placeholder domain). No code changes.
+
 ## 0.1.0 — Developer preview
 
 Initial release of the official Addis AI SDK for Python.

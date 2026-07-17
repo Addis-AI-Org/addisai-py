@@ -1,6 +1,6 @@
 # addisai (Python)
 
-The official [Addis AI](https://addisai.com) SDK for Python — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation for **Amharic (`am`)** and **Afan Oromo (`om`)**.
+The official [Addis AI](https://addisassistant.com) SDK for Python — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation for **Amharic (`am`)** and **Afan Oromo (`om`)**.
 
 Mirrors the [Node SDK](../node) surface, Pythonic and `snake_case`.
 
