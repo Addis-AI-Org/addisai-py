@@ -101,24 +101,26 @@ def test_voice_generate_maps_clip_and_idempotency():
         body = json.loads(req.content)
         assert req.url.path == "/api/v1/voice/generations"
         assert len(body["client_request_id"]) == 26
-        assert body["voice_id"] == "am-hiwot"
+        assert body["voice_id"] == "am-hamen"
         return json_response({"data": {
             "id": "clip_1", "text": "ሰላም", "text_preview": "ሰላም",
-            "voice_id": "am-hiwot", "voice_name": "Hiwot", "voice_descriptor": "Warm",
+            "voice_id": "am-hamen", "voice_name": "Hamen", "voice_descriptor": "Warm",
             "language": "am", "output_format": "mp3_44100",
             "audio_url": "https://cdn.addisassistant.com/audio/clips/clip_1.mp3?token=x",
             "mime_type": "audio/mpeg", "duration_seconds": 1.2,
             "character_count": 3, "billable_characters": 3, "download_name": "x.mp3",
             "created_at": "2026-06-14T00:00:00Z",
-            "usage": {"pricing_unit": "character", "price_per_1000_characters": 4.8, "credits_used": 0.0144, "credits_remaining": 499.9, "currency": "ETB"},
+            "usage": {"pricing_unit": "minute", "price_per_minute": 5, "price_per_audio_minute": 5, "credits_used": 0.1, "credits_remaining": 499.9, "currency": "ETB"},
             "meta": {"ignored_voice_settings": ["style"], "applied_provider_settings": {"exaggeration": 0.5}, "idempotent_replay": False},
         }})
 
     addis, _ = client_with(handler)
-    clip = addis.voice.generate(voice_id="am-hiwot", text="ሰላም", language="am")
+    clip = addis.voice.generate(voice_id="am-hamen", text="ሰላም", language="am")
     assert clip.id == "clip_1"
     assert "cdn.addisassistant.com" in clip.audio_url
     assert clip.usage["currency"] == "ETB"
+    assert clip.usage["pricing_unit"] == "minute"
+    assert clip.usage["price_per_minute"] == 5
     # Security: provider knobs are not exposed.
     assert "applied_provider_settings" not in clip.meta
     assert clip.meta["ignored_voice_settings"] == ["style"]
@@ -130,7 +132,55 @@ def test_voice_generate_insufficient_credits():
 
     addis, _ = client_with(handler)
     with pytest.raises(InsufficientCreditsError):
-        addis.voice.generate(voice_id="am-hiwot", text="x", language="am")
+        addis.voice.generate(voice_id="am-hamen", text="x", language="am")
+
+
+def test_voice_estimate_and_usage_use_minute_pricing():
+    def handler(req):
+        if req.url.path == "/api/v1/voice/estimate":
+            return json_response({"data": {
+                "character_count": 20,
+                "billable_characters": 20,
+                "pricing_unit": "minute",
+                "price_per_minute": 5,
+                "price_per_audio_minute": 5,
+                "estimated_duration_seconds": 2,
+                "estimated_billable_seconds": 2,
+                "estimated_billable_minutes": 0.0333,
+                "estimated_cost": 0.1667,
+                "currency": "ETB",
+                "current_balance": 500,
+                "estimated_balance_after": 499.8333,
+                "can_generate": True,
+            }})
+        return json_response({"data": {
+            "wallet_id": "wallet_1",
+            "balance": 500,
+            "formatted_balance": "Br 500.00",
+            "currency": "ETB",
+            "last_deduction_at": None,
+            "total_spend": 0,
+            "formatted_total_spend": "Br 0.00",
+            "max_tts_characters": 5000,
+            "pricing": {
+                "unit": "minute",
+                "price_per_minute": 5,
+                "price_per_audio_minute": 5,
+                "minimum_charge": 0,
+                "currency": "ETB",
+            },
+            "budget": None,
+        }})
+
+    addis, _ = client_with(handler)
+    estimate = addis.voice.estimate(voice_id="am-hamen", text="ሰላም", language="am")
+    usage = addis.voice.usage()
+
+    assert estimate["pricing_unit"] == "minute"
+    assert estimate["price_per_minute"] == 5
+    assert estimate["estimated_billable_minutes"] == 0.0333
+    assert usage["pricing"]["unit"] == "minute"
+    assert usage["pricing"]["price_per_minute"] == 5
 
 
 # --- chat ------------------------------------------------------------------

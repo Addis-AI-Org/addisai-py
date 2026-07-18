@@ -18,7 +18,7 @@ from addisai import AddisAI
 addis = AddisAI()  # reads ADDIS_API_KEY from the environment
 
 # Text-to-speech
-clip = addis.voice.generate(voice_id="am-hiwot", text="ሰላም ለዓለም።", language="am")
+clip = addis.voice.generate(voice_id="am-hamen", text="ሰላም ለዓለም።", language="am")
 clip.to_file("welcome.mp3")
 
 # Chat
@@ -46,7 +46,7 @@ The key is read from `api_key=` or `ADDIS_API_KEY`, never logged, and redacted i
 
 ```python
 clip = addis.voice.generate(
-    voice_id="am-hiwot",
+    voice_id="am-hamen",
     text="ሰላም።",
     language="am",
     output_format="mp3_44100",                 # mp3_44100 | wav_44100 | pcm_16000
@@ -62,7 +62,7 @@ Idempotency keys are generated automatically and reused across retries so a retr
 
 ```python
 addis.voices.list(language="am", gender="female")
-addis.voice.estimate(voice_id="am-hiwot", text="ሰላም", language="am")
+addis.voice.estimate(voice_id="am-hamen", text="ሰላም", language="am")
 addis.voice.usage()
 for clip in addis.voice.clips.list(language="am"):  # auto-paginates
     print(clip.id)
@@ -153,7 +153,7 @@ audio.to_file("legacy.wav")        # or: data = audio.read()
 from addisai import InsufficientCreditsError, RateLimitError, APIError
 
 try:
-    addis.voice.generate(voice_id="am-hiwot", text="ሰላም", language="am")
+    addis.voice.generate(voice_id="am-hamen", text="ሰላም", language="am")
 except InsufficientCreditsError as e:
     show_top_up(e.available_balance)
 except RateLimitError as e:

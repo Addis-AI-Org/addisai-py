@@ -69,7 +69,9 @@ def map_clip(raw: Dict[str, Any], http: Optional[httpx.Client], client_request_i
         download_name=raw.get("download_name") or "",
         created_at=raw.get("created_at"),
         usage={
-            "pricing_unit": usage.get("pricing_unit", "character"),
+            "pricing_unit": usage.get("pricing_unit", "minute"),
+            "price_per_minute": usage.get("price_per_minute"),
+            "price_per_audio_minute": usage.get("price_per_audio_minute"),
             "price_per_1000_characters": usage.get("price_per_1000_characters"),
             "credits_used": usage.get("credits_used"),
             "credits_remaining": usage.get("credits_remaining"),

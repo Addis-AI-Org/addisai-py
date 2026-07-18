@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- **Voice 2 billing:** preserve the production minute-pricing fields on voice
+  estimates, usage responses, and generated clips.
+- **Voice examples:** use the production `am-hamen` voice ID.
+
 ## 0.1.1
 
 - **Docs:** correct the homepage/brand link to `https://addisassistant.com`

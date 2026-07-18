@@ -33,7 +33,7 @@ def check(label, fn):
 
 am = addis.voices.list(language="am")
 ok(f"voices.list am={len(am)}") if am else check("voices.list", lambda: (_ for _ in ()).throw(Exception("empty")))
-voice_id = next((v["id"] for v in am if v.get("is_default")), am[0]["id"] if am else "am-hiwot")
+voice_id = next((v["id"] for v in am if v.get("is_default")), am[0]["id"] if am else "am-hamen")
 
 
 def _usage():
