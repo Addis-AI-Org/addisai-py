@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1
+
+- Present Amharic, Afaan Oromo, and Tigrinya together with real catalog voices:
+  Hamen, Bikila, and Berhane, and their matching voice IDs.
+- Place real-time streaming under Voice and keep License as the final section.
+- Choose an available voice matching the requested language in the runnable
+  real-time example when no voice ID is supplied.
+- SDK methods, dependencies, and billing behavior are unchanged.
+
 ## 0.3.0
 
 - Enable billed `voice.stream()` with MP3 phrase decoding, clip/usage metadata,

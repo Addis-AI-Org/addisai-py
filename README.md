@@ -1,8 +1,8 @@
 # addisai (Python)
 
-The official [Addis AI](https://addisassistant.com) SDK for Python — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation for **Amharic (`am`)** and **Afan Oromo (`om`)**.
+The official [Addis AI](https://addisassistant.com) SDK for Python — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, with examples for **Amharic (`am`)**, **Afaan Oromo (`om`)**, and **Tigrinya (`ti`)**.
 
-Mirrors the [Node SDK](../node) surface, Pythonic and `snake_case`.
+Mirrors the [Node.js SDK](https://github.com/Addis-AI-Org/addisai-js) surface, Pythonic and `snake_case`.
 
 ```bash
 pip install addisai
@@ -42,6 +42,17 @@ addis = AddisAI(
 
 The key is read from `api_key=` or `ADDIS_API_KEY`, never logged, and redacted in `repr()`. The SDK only talks to the Cloudflare‑wrapped API and refuses raw `*.supabase.co` hosts.
 
+## Languages
+
+| Language | Code | Example voice | Voice ID |
+| --- | --- | --- | --- |
+| Amharic | `am` | Hamen | `am-hamen` |
+| Afaan Oromo | `om` | Bikila | `om-bikila` |
+| Tigrinya | `ti` | Berhane | `ti-berhane` |
+
+Use a matching language and voice ID for speech generation. Fetch the current
+catalog with `voices.list` to choose another available voice.
+
 ## Voice (text‑to‑speech)
 
 ```python
@@ -69,6 +80,56 @@ for clip in addis.voice.clips.list(language="am"):  # auto-paginates
 addis.voice.clips.delete("clip_123")
 ```
 
+### Real-time voice
+
+```python
+from uuid import uuid4
+
+# Select a matching pair from the Languages table.
+voice_id, language = "ti-berhane", "ti"
+text = "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
+
+# HTTP streaming: no extra dependency needed.
+audio = addis.voice.stream(
+    voice_id=voice_id, language=language, text=text,
+    client_request_id=str(uuid4()),
+)
+audio.to_file("speech.mp3")
+print(audio.metadata["usage"])
+
+# Persistent sockets: pip install "addisai[realtime]"
+with addis.realtime.connect(voice_id=voice_id, language=language) as voice:
+    with open("speech.mp3", "wb") as output:
+        for chunk in voice.speak(text, str(uuid4())):
+            output.write(chunk)
+    print(voice.last_completion["usage"])
+```
+
+`realtime.create_session()` creates a scoped, one-use ticket valid for 60 seconds;
+`connect_realtime(ticket)` opens its socket without a developer key. Keep keys on
+your application server. Sessions last up to 10 minutes, allow one utterance at
+a time, and carry a cumulative text budget of up to 5,000 characters. Cancellation
+mutes delivery; an already-started synthesis completes and is billed.
+
+Use `append()` and `commit()` to buffer a complete generated utterance before
+synthesis. For early WAV pieces, select `audio_format="wav_mp3"`, iterate raw
+`audio.delta` events and use `decode_realtime_audio(event)`; play each piece
+according to its `format`. `speak()` yields concatenatable MP3 and requires an
+`mp3` session. Use any matching voice and language pair from the Languages table.
+HTTP streams support MP3 only. Keep request IDs stable when recovering a failed
+request in a new session to avoid a second charge; use a fresh ID for each new
+utterance.
+
+See [examples/realtime.py](examples/realtime.py).
+
+Run the same example with any of the documented languages:
+
+```bash
+ADDIS_VOICE_LANGUAGE=am ADDIS_VOICE_ID=am-hamen python examples/realtime.py "ሰላም፣ እንኳን ወደ አዲስ ኤአይ በደህና መጡ።"
+ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila python examples/realtime.py "Nagaa, gara Addis AI baga nagaan dhuftan."
+ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane python examples/realtime.py "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
+```
+
 ## Chat / LLM
 
 ```python
@@ -83,6 +144,8 @@ res = addis.chat.completions.create(
 ```
 
 > The model is selected by Addis AI; responses report the id `addis-1-alef`.
+
+Chat accepts `am`, `om`, and `ti` for text, attachments, and audio input.
 
 ### Function calling
 
@@ -128,12 +191,14 @@ Streaming is beta and not available with tools.
 
 ```python
 with open("call.wav", "rb") as f:
-    t = addis.speech.transcribe(audio=f, language="am")  # am|om|en|ha|sw
+    t = addis.speech.transcribe(audio=f, language="am")  # am|om|ti|en|ha|sw
 print(t["text"])
 
-out = addis.translate.create(text="Hello", source="en", target="am")  # am|om|en
+out = addis.translate.create(text="Hello", source="en", target="am")  # am|om|ti|en
 print(out["text"])
 ```
+
+Speech recognition uses `/api/v2/stt`; confidence may be `None`.
 
 ## Legacy audio (deprecated)
 
@@ -176,44 +241,3 @@ with `ADDIS_API_KEY=<key> python scripts/smoke.py`.
 ## License
 
 MIT
-
-
-### Tigrigna
-
-Use `language="ti"` for chat (including attachments) and speech transcription.
-Use `source="ti"` or `target="ti"` for translation with `am`, `om`, or `en`.
-Tigrigna transcription uses `/api/v2/stt`; confidence may be `None`.
-
-
-### Real-time voice (0.3.0)
-
-```python
-# HTTP streaming: no extra dependency needed.
-audio = addis.voice.stream(voice_id="am-hamen", language="am", text=text)
-audio.to_file("speech.mp3")
-print(audio.metadata["usage"])
-
-# Persistent sockets: pip install "addisai[realtime]"
-with addis.realtime.connect(voice_id="am-hamen", language="am") as voice:
-    with open("speech.mp3", "wb") as output:
-        for chunk in voice.speak(text, "unique-turn-id"):
-            output.write(chunk)
-    print(voice.last_completion["usage"])
-```
-
-`realtime.create_session()` creates a scoped, one-use ticket valid for 60 seconds;
-`connect_realtime(ticket)` opens its socket without a developer key. Keep keys on
-your application server. Sessions last up to 10 minutes, allow one utterance at
-a time, and carry a cumulative text budget of up to 5,000 characters. Cancellation
-mutes delivery; an already-started synthesis completes and is billed.
-
-Use `append()` and `commit()` to buffer a complete generated utterance before
-synthesis. For early WAV pieces, select `audio_format="wav_mp3"`, iterate raw
-`audio.delta` events and use `decode_realtime_audio(event)`; play each piece
-according to its `format`. `speak()` yields concatenatable MP3 and requires an
-`mp3` session. Real-time voice languages documented here are Amharic (`am`),
-Afaan Oromo (`om`), and Tigrigna (`ti`). Choose an available voice
-from the live catalog. HTTP streams support MP3 only. Keep request IDs stable when recovering a failed request in a
-new session to avoid a second charge; use a fresh ID for each new utterance.
-
-See [examples/realtime.py](examples/realtime.py).
