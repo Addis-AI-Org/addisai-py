@@ -9,6 +9,7 @@ from ._env import API_KEY_ENV_VAR, redact_api_key, resolve_base_url
 from ._exceptions import AddisAIError
 from ._transport import Transport
 from .resources import Chat, Legacy, Speech, Translate, Voice, Voices
+from .resources.realtime import Realtime
 
 
 class AddisAI:
@@ -46,6 +47,7 @@ class AddisAI:
         self.voices = Voices(self._transport)
         self.speech = Speech(self._transport)
         self.translate = Translate(self._transport)
+        self.realtime = Realtime(self._transport)
         #: Deprecated. Use ``voice``.
         self.legacy = Legacy(self._transport)
 
