@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterator, List, Optional
 from .._clip import VoiceClip, map_clip
 from .._exceptions import AddisAIError
 from .._idempotency import ulid
+from .._languages import VoiceLanguage, validate_voice_language
 from .._streaming import AudioStream
 from .._transport import Options, Transport, unwrap_data
 
@@ -22,13 +23,14 @@ class Voice:
         *,
         voice_id: str,
         text: str,
-        language: str,
+        language: VoiceLanguage,
         output_format: str = "mp3_44100",
         voice_settings: Optional[Dict[str, float]] = None,
         client_request_id: Optional[str] = None,
         request_options: Optional[Options] = None,
     ) -> VoiceClip:
         """Synthesize speech and return the generated clip."""
+        validate_voice_language(language)
         crid = client_request_id or ulid()
         body = {
             "text": text,
@@ -50,10 +52,11 @@ class Voice:
         )
         return map_clip(data, self._transport.http_client, crid)
 
-    def stream(self, *, voice_id: str, text: str, language: str,
+    def stream(self, *, voice_id: str, text: str, language: VoiceLanguage,
                output_format: str = "mp3_44100", voice_settings: Optional[Dict[str, float]] = None,
                client_request_id: Optional[str] = None, request_options: Optional[Options] = None) -> AudioStream:
         """Yield MP3 phrases as they arrive. metadata is set after billing completes."""
+        validate_voice_language(language)
         if output_format != "mp3_44100":
             raise AddisAIError("voice.stream supports MP3. Use voice.generate for other formats.")
         body = {"text": text, "language": language, "voice_id": voice_id,
@@ -67,10 +70,11 @@ class Voice:
         *,
         voice_id: str,
         text: str,
-        language: str,
+        language: VoiceLanguage,
         output_format: str = "mp3_44100",
         request_options: Optional[Options] = None,
     ) -> Dict[str, Any]:
+        validate_voice_language(language)
         body = {"text": text, "language": language, "voice_id": voice_id, "output_format": output_format}
         return unwrap_data(
             self._transport.request("POST", "/api/v1/voice/estimate", json=body, options=request_options)
@@ -91,10 +95,12 @@ class Clips:
         *,
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
-        language: Optional[str] = None,
+        language: Optional[VoiceLanguage] = None,
         voice_id: Optional[str] = None,
         request_options: Optional[Options] = None,
     ) -> "ClipPage":
+        if language is not None:
+            validate_voice_language(language)
         def fetch(cur: Optional[str]) -> Dict[str, Any]:
             query = {"limit": limit, "cursor": cur, "language": language, "voice_id": voice_id}
             return self._transport.request(

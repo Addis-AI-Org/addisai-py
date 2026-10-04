@@ -2,6 +2,7 @@
 from ._client import AddisAI
 from ._clip import VoiceClip
 from ._idempotency import ulid
+from ._languages import VoiceLanguage
 from ._streaming import AudioStream, ChatStream
 from ._version import __version__
 from .resources import ADDIS_CHAT_MODEL
@@ -28,6 +29,7 @@ from ._exceptions import (
 __all__ = [
     "AddisAI",
     "VoiceClip",
+    "VoiceLanguage",
     "ChatStream",
     "AudioStream",
     "RealtimeConnection",

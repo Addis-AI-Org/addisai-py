@@ -76,7 +76,7 @@ class Socket:
 
 def test_ticket_socket_and_repeated_turns():
     socket = Socket()
-    with connect_realtime({"token": "ephemeral", "websocket_url": "wss://api.addisassistant.com/api/v1/realtime/voice"}, websocket_factory=lambda url, **opts: socket) as connection:
+    with connect_realtime({"token": "ephemeral", "language": "am", "websocket_url": "wss://api.addisassistant.com/api/v1/realtime/voice"}, websocket_factory=lambda url, **opts: socket) as connection:
         assert b"".join(connection.speak("A complete sentence.", "turn-1")) == b"mp3"
         assert b"".join(connection.speak("Another sentence.", "turn-2")) == b"mp3"
         assert connection.last_completion["id"] == "clip"
@@ -94,4 +94,4 @@ def test_session_serialization():
 
 def test_query_credentials_rejected():
     with pytest.raises(AddisAIError, match="without credentials"):
-        connect_realtime({"token": "secret", "websocket_url": "wss://api.addisassistant.com/api/v1/realtime/voice?token=secret"})
+        connect_realtime({"token": "secret", "language": "am", "websocket_url": "wss://api.addisassistant.com/api/v1/realtime/voice?token=secret"})

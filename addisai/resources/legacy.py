@@ -7,6 +7,7 @@ from typing import Optional
 
 from .._exceptions import AddisAIError
 from .._streaming import AudioStream
+from .._languages import VoiceLanguage, validate_voice_language
 from .._transport import Options, Transport
 
 _warned = False
@@ -46,9 +47,10 @@ class LegacyAudio:
         self._transport = transport
 
     def generate(
-        self, *, text: str, language: str, request_options: Optional[Options] = None
+        self, *, text: str, language: VoiceLanguage, request_options: Optional[Options] = None
     ) -> LegacyAudioResult:
         """Deprecated. Synthesize speech via the legacy endpoint (non-streaming, 1500-char cap)."""
+        validate_voice_language(language)
         _warn_once()
         body = self._transport.request(
             "POST",
@@ -62,10 +64,11 @@ class LegacyAudio:
         return LegacyAudioResult(audio)
 
     def stream(
-        self, *, text: str, language: str, request_options: Optional[Options] = None
+        self, *, text: str, language: VoiceLanguage, request_options: Optional[Options] = None
     ) -> AudioStream:
         """Deprecated. Stream synthesis via the legacy endpoint. Returns an
         :class:`AudioStream` of audio byte chunks (handles both legacy encodings)."""
+        validate_voice_language(language)
         _warn_once()
         return AudioStream(
             self._transport,
