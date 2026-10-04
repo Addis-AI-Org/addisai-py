@@ -5,6 +5,7 @@ import base64
 import json as _json
 import time
 import uuid
+import struct
 from typing import Any, Dict, Iterator, List, Optional
 
 import httpx
@@ -131,16 +132,44 @@ class AudioStream:
     """A stream of audio byte chunks. Iterate to receive ``bytes``. Normalizes
     the two legacy encodings (ndjson base64, or raw audio bytes)."""
 
-    def __init__(self, transport, body: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> None:
-        self._cm = transport.stream("POST", "/api/v1/audio", json=body, options=options)
+    def __init__(self, transport, body: Dict[str, Any], options: Optional[Dict[str, Any]] = None,
+                 *, path: str = "/api/v1/audio", voice: bool = False) -> None:
+        self._cm = transport.stream("POST", path, json=body, options=options)
         self._consumed = False
+        self._voice = voice
+        self._transport = transport
+        self._options = options or {}
+        self._response: Optional[httpx.Response] = None
+        self.metadata: Optional[Dict[str, Any]] = None
+        self.client_request_id: Optional[str] = body.get("client_request_id")
 
     def __iter__(self) -> Iterator[bytes]:
         if self._consumed:
             raise AddisAIError("This stream has already been consumed.")
         self._consumed = True
         with self._cm as response:
+            self._response = response
             _raise_for_stream_status(response)
+            if self._voice:
+                if response.headers.get("x-addis-audio-protocol") == "mp3-frames-v1":
+                    for part in _iter_voice_frames(response):
+                        if isinstance(part, bytes):
+                            yield part
+                        else:
+                            self.metadata = part
+                elif "application/json" in response.headers.get("content-type", ""):
+                    response.read()
+                    self.metadata = response.json().get("data")
+                    if not self.metadata or not self.metadata.get("audio_url"):
+                        raise AddisAIError("Invalid voice replay metadata.")
+                    # Download the saved, already-paid clip on an idempotent replay.
+                    with self._transport.http_client.stream("GET", self.metadata["audio_url"],
+                                                            timeout=self._options.get("timeout", 190)) as audio:
+                        _raise_for_stream_status(audio)
+                        yield from audio.iter_bytes()
+                else:
+                    raise AddisAIError("Unsupported voice stream protocol.")
+                return
             ctype = response.headers.get("content-type", "").lower()
             if "ndjson" in ctype or "json" in ctype:
                 for line in response.iter_lines():
@@ -165,8 +194,51 @@ class AudioStream:
         """Collect every chunk into a single bytes object."""
         return b"".join(self)
 
+    def close(self) -> None:
+        """Stop reading and close the underlying HTTP response."""
+        if self._response is not None:
+            self._response.close()
+
     def to_file(self, path: str) -> None:
         """Stream the audio to a file on disk."""
         with open(path, "wb") as fh:
             for chunk in self:
                 fh.write(chunk)
+
+
+def _iter_voice_frames(response: httpx.Response) -> Iterator[Any]:
+    pending = bytearray()
+    terminal = False
+    total = 0
+    for chunk in response.iter_bytes():
+        pending.extend(chunk)
+        if terminal:
+            if len(pending) > 128 * 1024:
+                raise AddisAIError("Voice metadata exceeds the limit.")
+            continue
+        while len(pending) >= 4:
+            size = struct.unpack_from(">I", pending)[0]
+            if size == 0:
+                del pending[:4]
+                terminal = True
+                break
+            if size > 2 * 1024 * 1024:
+                raise AddisAIError("Voice frame exceeds the limit.")
+            if len(pending) < size + 4:
+                break
+            total += size
+            if total > 16 * 1024 * 1024:
+                raise AddisAIError("Voice audio exceeds the limit.")
+            yield bytes(pending[4:4 + size])
+            del pending[:4 + size]
+        if terminal and len(pending) > 128 * 1024:
+            raise AddisAIError("Voice metadata exceeds the limit.")
+    if not terminal:
+        raise AddisAIError("Voice stream ended before billing confirmation. Retry with the same client_request_id.")
+    try:
+        data = _json.loads(pending)
+    except ValueError:
+        raise AddisAIError("Invalid voice completion metadata.") from None
+    if not isinstance(data, dict) or not isinstance(data.get("data"), dict) or data.get("error"):
+        raise AddisAIError("Voice generation did not complete.")
+    yield data["data"]

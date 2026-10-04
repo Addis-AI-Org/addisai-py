@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (prepared; publication pending)
+
+- Enable billed `voice.stream()` with MP3 phrase decoding, clip/usage metadata,
+  truncation errors, and idempotent clip recovery.
+- Add `realtime.create_session()`, `realtime.connect()`, and `connect_realtime()`
+  with scoped, short-lived WebSocket tickets, text/audio events, and MP3 `speak()`.
+- Add text buffering and cancellation; started synthesis still completes billing.
+- Add the optional `realtime` extra for Python WebSocket connections.
+
 ## 0.2.0
 
 - **Voice 2 billing:** preserve the production minute-pricing fields on voice

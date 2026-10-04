@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterator, List, Optional
 
 from .._clip import VoiceClip, map_clip
-from .._exceptions import NotSupportedError
+from .._exceptions import AddisAIError
 from .._idempotency import ulid
 from .._streaming import AudioStream
 from .._transport import Options, Transport, unwrap_data
@@ -50,12 +50,17 @@ class Voice:
         )
         return map_clip(data, self._transport.http_client, crid)
 
-    def stream(self, **_: Any) -> AudioStream:
-        """The surface is stable for when the API enables streaming synthesis;
-        until then it raises NotSupportedError. Use ``generate`` today."""
-        raise NotSupportedError(
-            "Streaming voice synthesis is not yet available. Use voice.generate()."
-        )
+    def stream(self, *, voice_id: str, text: str, language: str,
+               output_format: str = "mp3_44100", voice_settings: Optional[Dict[str, float]] = None,
+               client_request_id: Optional[str] = None, request_options: Optional[Options] = None) -> AudioStream:
+        """Yield MP3 phrases as they arrive. metadata is set after billing completes."""
+        if output_format != "mp3_44100":
+            raise AddisAIError("voice.stream supports MP3. Use voice.generate for other formats.")
+        body = {"text": text, "language": language, "voice_id": voice_id,
+                "output_format": output_format, "voice_settings": voice_settings,
+                "client_request_id": client_request_id or ulid()}
+        return AudioStream(self._transport, body, {"timeout": 190, **(request_options or {})},
+                           path="/api/v1/voice/generations/stream", voice=True)
 
     def estimate(
         self,

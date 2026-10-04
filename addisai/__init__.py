@@ -5,6 +5,7 @@ from ._idempotency import ulid
 from ._streaming import AudioStream, ChatStream
 from ._version import __version__
 from .resources import ADDIS_CHAT_MODEL
+from .resources.realtime import RealtimeConnection, connect_realtime, decode_realtime_audio
 from ._exceptions import (
     AddisAIError,
     APIConnectionError,
@@ -29,6 +30,9 @@ __all__ = [
     "VoiceClip",
     "ChatStream",
     "AudioStream",
+    "RealtimeConnection",
+    "connect_realtime",
+    "decode_realtime_audio",
     "ulid",
     "ADDIS_CHAT_MODEL",
     "__version__",
