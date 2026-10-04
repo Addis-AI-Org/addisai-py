@@ -7,7 +7,12 @@
 - Place real-time streaming under Voice and keep License as the final section.
 - Choose an available voice matching the requested language in the runnable
   real-time example when no voice ID is supplied.
-- SDK methods, dependencies, and billing behavior are unchanged.
+- Restrict voice types and runtime requests to `am`, `om`, and `ti`, including
+  HTTP streaming, WebSocket session creation and connection, and deprecated audio
+  generation. Filter the discoverable catalog to those languages.
+- Preserve existing clip history, non-voice language support, dependencies, and
+  billing protocol. Previously accepted voice codes outside these three now fail
+  locally without an API request.
 
 ## 0.3.0
 

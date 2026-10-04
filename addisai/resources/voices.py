@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from .._transport import Options, Transport, unwrap_data
+from .._languages import VOICE_LANGUAGES, VoiceLanguage, validate_voice_language
 
 
 class Voices:
@@ -13,21 +14,24 @@ class Voices:
     def list(
         self,
         *,
-        language: Optional[str] = None,
+        language: Optional[VoiceLanguage] = None,
         gender: Optional[str] = None,
         search: Optional[str] = None,
         include_unavailable: Optional[bool] = None,
         request_options: Optional[Options] = None,
     ) -> List[Dict[str, Any]]:
+        if language is not None:
+            validate_voice_language(language)
         query = {
             "language": language,
             "gender": gender,
             "search": search,
             "include_unavailable": include_unavailable,
         }
-        return unwrap_data(
+        voices = unwrap_data(
             self._transport.request("GET", "/api/v1/voice/voices", query=query, options=request_options)
         )
+        return [voice for voice in voices if voice.get("language") in VOICE_LANGUAGES]
 
     def preview(self, voice_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
         return unwrap_data(

@@ -6,8 +6,11 @@ from addisai import AddisAI
 if len(sys.argv) != 2:
     raise SystemExit('Usage: python examples/realtime.py "A complete sentence to speak"')
 
+language = os.getenv("ADDIS_VOICE_LANGUAGE", "am")
+if language not in ("am", "om", "ti"):
+    raise SystemExit("ADDIS_VOICE_LANGUAGE must be am, om, or ti.")
+
 with AddisAI() as addis:
-    language = os.getenv("ADDIS_VOICE_LANGUAGE", "am")
     voice_id = os.getenv("ADDIS_VOICE_ID")
     if not voice_id:
         voices = [voice for voice in addis.voices.list(language=language)
