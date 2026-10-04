@@ -212,9 +212,8 @@ synthesis. For early WAV pieces, select `audio_format="wav_mp3"`, iterate raw
 `audio.delta` events and use `decode_realtime_audio(event)`; play each piece
 according to its `format`. `speak()` yields concatenatable MP3 and requires an
 `mp3` session. Real-time voice languages documented here are Amharic (`am`),
-Afaan Oromo (`om`), English (`en`), and French (`fr`). Choose an available voice
+Afaan Oromo (`om`), and Tigrigna (`ti`). Choose an available voice
 from the live catalog. HTTP streams support MP3 only. Keep request IDs stable when recovering a failed request in a
 new session to avoid a second charge; use a fresh ID for each new utterance.
 
-See [examples/realtime.py](examples/realtime.py). WebSocket server activation
-must precede SDK 0.3.0 publication.
+See [examples/realtime.py](examples/realtime.py).

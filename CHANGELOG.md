@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (prepared; publication pending)
+## 0.3.0
 
 - Enable billed `voice.stream()` with MP3 phrase decoding, clip/usage metadata,
   truncation errors, and idempotent clip recovery.
@@ -8,6 +8,7 @@
   with scoped, short-lived WebSocket tickets, text/audio events, and MP3 `speak()`.
 - Add text buffering and cancellation; started synthesis still completes billing.
 - Add the optional `realtime` extra for Python WebSocket connections.
+- Document real-time voice integration in Amharic, Afaan Oromo, and Tigrigna.
 
 ## 0.2.0
 
