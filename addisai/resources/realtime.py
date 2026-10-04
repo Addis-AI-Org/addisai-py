@@ -17,20 +17,21 @@ class Realtime:
         self._transport = transport
 
     def create_session(self, *, voice_id: str, language: VoiceLanguage, audio_format: str = "mp3",
-                       max_text_characters: int = 5000, request_options: Optional[Options] = None) -> Dict[str, Any]:
+                       max_text_characters: int = 5000, max_audio_seconds: Optional[int] = None, request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Create a voice-scoped, one-use ticket valid for 60 seconds."""
         validate_voice_language(language)
         return unwrap_data(self._transport.request("POST", "/api/v1/realtime/sessions",
                            json={"voice_id": voice_id, "language": language, "audio_format": audio_format,
-                                 "max_text_characters": max_text_characters},
+                                 "max_text_characters": max_text_characters,
+                                 **({"max_audio_seconds": max_audio_seconds} if max_audio_seconds is not None else {})},
                            options={"max_retries": 0, **(request_options or {})}))
 
     def connect(self, *, voice_id: str, language: VoiceLanguage, audio_format: str = "mp3",
-                max_text_characters: int = 5000, request_options: Optional[Options] = None,
+                max_text_characters: int = 5000, max_audio_seconds: Optional[int] = None, request_options: Optional[Options] = None,
                 websocket_factory=None) -> "RealtimeConnection":
         """Create a ticket and open its socket. Install ``addisai[realtime]``."""
         session = self.create_session(voice_id=voice_id, language=language, audio_format=audio_format,
-                                      max_text_characters=max_text_characters, request_options=request_options)
+                                      max_text_characters=max_text_characters, max_audio_seconds=max_audio_seconds, request_options=request_options)
         return connect_realtime(session, websocket_factory=websocket_factory)
 
 

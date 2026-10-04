@@ -95,3 +95,10 @@ def test_session_serialization():
 def test_query_credentials_rejected():
     with pytest.raises(AddisAIError, match="without credentials"):
         connect_realtime({"token": "secret", "language": "am", "websocket_url": "wss://api.addisassistant.com/api/v1/realtime/voice?token=secret"})
+
+
+def test_explicit_audio_ceiling():
+    def handler(request):
+        assert json.loads(request.content)["max_audio_seconds"] == 20
+        return httpx.Response(201, json={"data": {"token": "ephemeral"}})
+    make_client(handler).realtime.create_session(voice_id="am-loza", language="am", max_audio_seconds=20)
