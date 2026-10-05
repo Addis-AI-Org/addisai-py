@@ -10,6 +10,7 @@ from ._exceptions import AddisAIError
 from ._transport import Transport
 from .resources import Chat, Legacy, Speech, Translate, Voice, Voices
 from .resources.realtime import Realtime
+from .resources.scribe import Scribe
 
 
 class AddisAI:
@@ -46,6 +47,7 @@ class AddisAI:
         self.voice = Voice(self._transport)
         self.voices = Voices(self._transport)
         self.speech = Speech(self._transport)
+        self.scribe = Scribe(self._transport)
         self.translate = Translate(self._transport)
         self.realtime = Realtime(self._transport)
         #: Deprecated. Use ``voice``.
