@@ -94,6 +94,7 @@ class Transport:
         json: Any = None,
         query: Optional[Dict[str, Any]] = None,
         options: Optional[Options] = None,
+        files: Any = None,
     ):
         """Open a streaming request. Returns an httpx streaming context manager;
         streams are not retried once started."""
@@ -101,10 +102,10 @@ class Transport:
         merged_query = {**self._default_query, **(query or {}), **(options.get("query") or {})}
         merged_query = {k: v for k, v in merged_query.items() if v is not None}
         url = self._base_url + path
-        headers = self._headers({"json": json, "files": None}, options)
+        headers = self._headers({"json": json, "files": files}, options)
         timeout = options.get("timeout", self._timeout)
         return self._client.stream(
-            method, url, params=merged_query or None, json=json, headers=headers, timeout=timeout
+            method, url, params=merged_query or None, json=json if files is None else None, files=files, headers=headers, timeout=timeout
         )
 
     def request(
