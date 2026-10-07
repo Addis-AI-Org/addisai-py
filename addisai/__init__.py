@@ -1,5 +1,6 @@
 """Official Addis AI SDK for Python."""
 from ._client import AddisAI
+from ._captions import to_srt, to_vtt
 from ._clip import VoiceClip
 from ._idempotency import ulid
 from ._languages import VoiceLanguage
@@ -37,6 +38,8 @@ __all__ = [
     "ScribeConnection",
     "ScribeTranscriptStream",
     "connect_scribe",
+    "to_srt",
+    "to_vtt",
     "connect_realtime",
     "decode_realtime_audio",
     "ulid",

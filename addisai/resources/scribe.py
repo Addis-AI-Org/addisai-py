@@ -13,15 +13,24 @@ from .speech import AudioInput
 
 PATH = "/api/v1/scribe"
 MAX_EVENT = 512 * 1024
+BACKENDS = ("standard", "turbo")
+TIMESTAMPS = ("none", "word")
 
 
 def _params(backend, chunk, request_id):
-    if backend not in ("cpu", "gpu") or chunk not in ("320ms", "1120ms"):
+    if backend not in BACKENDS or chunk not in ("320ms", "1120ms"):
         raise AddisAIError("Invalid Scribe backend or chunk.")
     rid = ulid() if request_id is None else request_id
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", rid):
         raise AddisAIError("Scribe request_id must contain 1–128 letters, digits, underscores or hyphens.")
     return {"backend": backend, "chunk": chunk, "request_id": rid}
+
+
+def _timestamps(value):
+    """Validate ``timestamps``; only a non-default value reaches the wire."""
+    if value not in TIMESTAMPS:
+        raise AddisAIError('Scribe timestamps must be "none" or "word".')
+    return {} if value == "none" else {"timestamps": value}
 
 
 def _completion(data):
@@ -78,33 +87,45 @@ class Scribe:
         return unwrap_data(self._transport.request("GET", PATH + "/usage", options=request_options))
 
     def recover(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
-        _params("cpu", "1120ms", request_id)
+        _params("standard", "1120ms", request_id)
         return _completion(unwrap_data(self._transport.request("GET", PATH + "/requests/" + request_id,
                            options={**(request_options or {}), "max_retries": 0})))
 
-    def transcribe(self, *, audio: AudioInput, backend: str = "cpu", chunk: str = "1120ms",
-                   request_id: Optional[str] = None, request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Transcribe an Amharic file. No automatic retries; recover its request_id after interruptions."""
-        params = _params(backend, chunk, request_id)
+    def transcribe(self, *, audio: AudioInput, backend: str = "standard", chunk: str = "1120ms",
+                   request_id: Optional[str] = None, timestamps: str = "none",
+                   request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Transcribe an Amharic file. No automatic retries; recover its request_id after interruptions.
+
+        ``backend`` is ``"standard"`` (default) or ``"turbo"``. ``timestamps="word"`` adds ``words``
+        and caption ``segments`` to the result (default ``"none"``, which sends no ``timestamps`` parameter).
+        """
+        params = {**_params(backend, chunk, request_id), **_timestamps(timestamps)}
         return _completion(unwrap_data(self._transport.request("POST", PATH + "/transcribe",
                            query={**params, "stream": "false"}, files=_files(audio), timeout_floor=600,
                            options={**(request_options or {}), "max_retries": 0})))
 
-    def stream(self, *, audio: AudioInput, backend: str = "cpu", chunk: str = "1120ms",
-               request_id: Optional[str] = None, request_options: Optional[Options] = None) -> "ScribeTranscriptStream":
-        """Upload a file, then iterate partials and settled completion. Use as a context manager."""
+    def stream(self, *, audio: AudioInput, backend: str = "standard", chunk: str = "1120ms",
+               request_id: Optional[str] = None, timestamps: str = "none",
+               request_options: Optional[Options] = None) -> "ScribeTranscriptStream":
+        """Upload a file, then iterate partials and settled completion. Use as a context manager.
+
+        ``backend`` defaults to ``"standard"``. Word timestamps are not available here; use transcribe().
+        """
+        if _timestamps(timestamps).get("timestamps") == "word":
+            raise AddisAIError('Scribe timestamps are available only for completed uploads; '
+                               'use transcribe(timestamps="word") instead of stream().')
         params = _params(backend, chunk, request_id)
         context = self._transport.stream("POST", PATH + "/transcribe", query={**params, "stream": "true"},
                                         files=_files(audio), options={"timeout": 600, **(request_options or {})})
         return ScribeTranscriptStream(context, params["request_id"])
 
-    def create_session(self, *, backend: str = "cpu", chunk: str = "320ms", request_id: Optional[str] = None,
+    def create_session(self, *, backend: str = "standard", chunk: str = "320ms", request_id: Optional[str] = None,
                        request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Create a one-use ticket on your server, with no automatic issuance retries."""
         return unwrap_data(self._transport.request("POST", PATH + "/sessions", json=_params(backend, chunk, request_id),
                           options={**(request_options or {}), "max_retries": 0}))
 
-    def connect(self, *, backend: str = "cpu", chunk: str = "320ms", request_id: Optional[str] = None,
+    def connect(self, *, backend: str = "standard", chunk: str = "320ms", request_id: Optional[str] = None,
                 request_options: Optional[Options] = None, websocket_factory=None) -> "ScribeConnection":
         session = self.create_session(backend=backend, chunk=chunk, request_id=request_id, request_options=request_options)
         return connect_scribe(session, websocket_factory=websocket_factory)
