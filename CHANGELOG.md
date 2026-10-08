@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0
+
+- **Scribe word timestamps:** `scribe.transcribe(timestamps="word")` returns
+  `words` and caption-ready `segments` (seconds from the start of the file). The
+  default `timestamps="none"` sends no `timestamps` parameter.
+  `scribe.stream()` rejects `timestamps="word"` locally.
+- **Caption helpers:** top-level `addisai.to_srt()` and `addisai.to_vtt()` format
+  `segments` locally (42 characters per line, at most 2 lines) and raise
+  `AddisAIError` when segments are missing.
+- **Scribe backends are now `"standard"` and `"turbo"`** (default `"standard"`).
+  Other values fail locally without an API request.
+
+## 0.4.0
+
+- **Addis Scribe (Amharic transcription):** `addis.scribe.transcribe()` for file
+  uploads, `stream()` for provisional text followed by a settled completion,
+  `connect()` and `create_session()` for live PCM audio with scoped one-use
+  tickets (plus `connect_scribe()`), `usage()` for wallet balance and rate,
+  `recover()` for settled results by request ID, and `capabilities()` for limits.
+- Backends `"standard"` (default) and `"turbo"`, 320ms/1120ms chunks, stable
+  request IDs, and no automatic retries on paid uploads or ticket issuance.
+
 ## 0.3.1
 
 - Present Amharic, Afaan Oromo, and Tigrinya together with real catalog voices:

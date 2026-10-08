@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "addisai"
-version = "0.4.0"
+version = "0.5.0"
 description = "Official Addis AI SDK for Python — voice (TTS), realtime voice streaming, chat, speech-to-text, and translation."
 readme = "README.md"
 license = "MIT"

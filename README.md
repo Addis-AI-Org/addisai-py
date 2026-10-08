@@ -189,9 +189,10 @@ completion = addis.chat.completions.create(language="am", messages=[...], stream
 
 Streaming is beta and not available with tools.
 
-## Addis Scribe (0.4.0)
+## Addis Scribe
 
-Scribe transcribes **Amharic**, with CPU/GPU inference at the same character rate.
+Scribe transcribes **Amharic**. Choose `backend="standard"` (default) or
+`backend="turbo"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
 ```python
@@ -200,7 +201,7 @@ from addisai import AddisAI, ulid
 request_id = ulid()
 with AddisAI() as addis:
     with open("speech.wav", "rb") as audio:
-        result = addis.scribe.transcribe(audio=audio, backend="cpu", request_id=request_id)
+        result = addis.scribe.transcribe(audio=audio, backend="standard", request_id=request_id)
     print(result["text"], result["usage"]["credits_used"])
     # Recovery returns the original settled result without another charge:
     # recovered = addis.scribe.recover(request_id)
@@ -213,6 +214,37 @@ with AddisAI() as addis:
                     print(event["data"]["usage"])
 ```
 
+### Word timestamps and captions
+
+Pass `timestamps="word"` to `transcribe()` to receive `words` and caption-ready
+`segments` (times in seconds from the start of the file). Timestamps cost nothing
+extra. `addisai.to_srt()` and `addisai.to_vtt()` format the segments locally, without
+another API call, wrapping each cue at 42 characters per line and at most 2 lines.
+
+```python
+from addisai import AddisAI, to_srt, to_vtt, ulid
+
+with AddisAI() as addis:
+    with open("speech.wav", "rb") as audio:
+        result = addis.scribe.transcribe(audio=audio, timestamps="word", request_id=ulid())
+print(result["words"][0])  # {'text': 'ሰላም', 'start': 18.9, 'end': 19.52}
+with open("speech.srt", "w", encoding="utf-8") as f:
+    f.write(to_srt(result))
+with open("speech.vtt", "w", encoding="utf-8") as f:
+    f.write(to_vtt(result))
+# 1
+# 00:00:18,800 --> 00:00:21,800
+# ሰላም ወዳጆቻችን እንዴት ከረማችሁ ዛሬ እንግዲህ እንግዳ አድርጌ
+# ያቀረኩላችሁ
+```
+
+Timestamps are available for completed uploads only: `stream()` rejects
+`timestamps="word"` locally, and live sessions do not return timestamps.
+`to_srt()`/`to_vtt()` raise `AddisAIError` if the result has no `segments`; they also
+work on the dict returned by `recover()` when the original request used timestamps.
+
+### Live audio
+
 Install `pip install "addisai[realtime]"` for `addis.scribe.connect(request_id=...)`.
 Read its event iterator while calling `send_audio(frame)` with **raw 16 kHz mono
 PCM16 little-endian** (3,200 bytes per 100 ms), then call `finish()` and read the
@@ -223,8 +255,8 @@ socket without account credentials in its URL. `capabilities()` returns model
 limits and `usage()` returns your wallet balance and current rate.
 
 HTTP uploads accept 25 MiB / 180 seconds. File streams emit partials after upload;
-WebSockets accept audio incrementally. HTTP defaults to CPU/1120ms chunks; sockets
-to CPU/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
+WebSockets accept audio incrementally. HTTP defaults to standard/1120ms chunks; sockets
+to standard/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
 Only final transcript UTF-16 character units are billed; partials have no separate
 charge. Paid requests/ticket creation are not automatically retried. Disconnecting
 or closing a stream can still bill accepted audio. Recover settled results for 24
