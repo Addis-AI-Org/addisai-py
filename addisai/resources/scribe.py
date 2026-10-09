@@ -33,6 +33,18 @@ def _timestamps(value):
     return {} if value == "none" else {"timestamps": value}
 
 
+def _speakers(value, backend):
+    """Validate ``speakers``; only ``True`` reaches the wire, and it needs the turbo backend."""
+    if not isinstance(value, bool):
+        raise AddisAIError("Scribe speakers must be True or False.")
+    if not value:
+        return {}
+    if backend != "turbo":
+        raise AddisAIError('Scribe speaker labels are available on the turbo backend; '
+                           'pass backend="turbo" with speakers=True.')
+    return {"speakers": "true"}
+
+
 def _completion(data):
     if not isinstance(data, dict) or not isinstance(data.get("text"), str) or data.get("usage", {}).get("settled") is not True:
         raise AddisAIError("Scribe ended without settled billing. Recover the same request_id before retrying.")
@@ -92,25 +104,33 @@ class Scribe:
                            options={**(request_options or {}), "max_retries": 0})))
 
     def transcribe(self, *, audio: AudioInput, backend: str = "standard", chunk: str = "1120ms",
-                   request_id: Optional[str] = None, timestamps: str = "none",
+                   request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
                    request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Transcribe an Amharic file. No automatic retries; recover its request_id after interruptions.
 
         ``backend`` is ``"standard"`` (default) or ``"turbo"``. ``timestamps="word"`` adds ``words``
         and caption ``segments`` to the result (default ``"none"``, which sends no ``timestamps`` parameter).
+        ``speakers=True`` (turbo only; default ``False``, which sends no ``speakers`` parameter) turns on
+        word timestamps and adds a ``speaker`` number (or ``None``) to every word and segment, plus a
+        ``speakers`` count to the result.
         """
-        params = {**_params(backend, chunk, request_id), **_timestamps(timestamps)}
+        params = {**_params(backend, chunk, request_id), **_timestamps(timestamps), **_speakers(speakers, backend)}
         return _completion(unwrap_data(self._transport.request("POST", PATH + "/transcribe",
                            query={**params, "stream": "false"}, files=_files(audio), timeout_floor=600,
                            options={**(request_options or {}), "max_retries": 0})))
 
     def stream(self, *, audio: AudioInput, backend: str = "standard", chunk: str = "1120ms",
-               request_id: Optional[str] = None, timestamps: str = "none",
+               request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
                request_options: Optional[Options] = None) -> "ScribeTranscriptStream":
         """Upload a file, then iterate partials and settled completion. Use as a context manager.
 
-        ``backend`` defaults to ``"standard"``. Word timestamps are not available here; use transcribe().
+        ``backend`` defaults to ``"standard"``. Word timestamps and speaker labels are not available here;
+        use transcribe().
         """
+        if speakers is True:
+            raise AddisAIError('Scribe speaker labels are available only for completed uploads; '
+                               'use transcribe(backend="turbo", speakers=True) instead of stream().')
+        _speakers(speakers, "turbo")
         if _timestamps(timestamps).get("timestamps") == "word":
             raise AddisAIError('Scribe timestamps are available only for completed uploads; '
                                'use transcribe(timestamps="word") instead of stream().')

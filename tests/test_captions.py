@@ -67,3 +67,61 @@ def test_missing_segments_raise():
         to_srt({})
     with pytest.raises(AddisAIError, match="segments"):
         to_vtt({"segments": None})
+
+LABELLED = [{"text": "ሰላም ወዳጆቻችን", "start": 0.6, "end": 1.6, "speaker": 1},
+            {"text": "እንዴት ናችሁ", "start": 1.7, "end": 3.0, "speaker": 2}]
+
+def test_speakers_sent_only_when_true():
+    seen = []
+    def handler(request):
+        seen.append(request.url.params)
+        return httpx.Response(200, json={"data": RAW})
+    addis = client(handler)
+    addis.scribe.transcribe(audio=b"a", request_id="a", backend="turbo")
+    addis.scribe.transcribe(audio=b"a", request_id="b", backend="turbo", speakers=False)
+    addis.scribe.transcribe(audio=b"a", request_id="c", backend="turbo", speakers=True)
+    assert "speakers" not in seen[0]
+    assert "speakers" not in seen[1]
+    assert seen[2]["speakers"] == "true"
+    assert seen[2]["backend"] == "turbo"
+
+def test_speakers_require_turbo_before_http():
+    calls = []
+    addis = client(lambda r: calls.append(r) or httpx.Response(200, json={"data": RAW}))
+    with pytest.raises(AddisAIError, match="turbo"):
+        addis.scribe.transcribe(audio=b"a", speakers=True)
+    with pytest.raises(AddisAIError, match='backend="turbo"'):
+        addis.scribe.transcribe(audio=b"a", backend="standard", speakers=True)
+    with pytest.raises(AddisAIError, match="speakers"):
+        addis.scribe.transcribe(audio=b"a", backend="turbo", speakers="yes")
+    assert calls == []
+
+def test_stream_rejects_speakers_locally():
+    calls = []
+    addis = client(lambda r: calls.append(r) or httpx.Response(200, json={"data": RAW}))
+    with pytest.raises(AddisAIError, match=r"completed uploads.*transcribe\("):
+        addis.scribe.stream(audio=b"a", backend="turbo", speakers=True)
+    assert calls == []
+
+def test_speaker_fields_surface_in_result():
+    words = [{"text": "ሰላም", "start": 0.98, "end": 1.08, "speaker": 1}, {"text": "እ", "start": 1.1, "end": 1.2, "speaker": None}]
+    addis = client(lambda r: httpx.Response(200, json={"data": {**RAW, "backend": "turbo", "words": words, "segments": LABELLED, "speakers": 2}}))
+    result = addis.scribe.transcribe(audio=b"a", backend="turbo", speakers=True)
+    assert result["words"] == words
+    assert [s["speaker"] for s in result["segments"]] == [1, 2]
+    assert result["speakers"] == 2
+
+def test_speaker_shared_test_vector():
+    assert to_srt({"segments": LABELLED}) == "1\n00:00:00,600 --> 00:00:01,600\nSpeaker 1: ሰላም ወዳጆቻችን\n\n2\n00:00:01,700 --> 00:00:03,000\nSpeaker 2: እንዴት ናችሁ\n"
+    assert to_vtt({"segments": LABELLED}) == "WEBVTT\n\n00:00:00.600 --> 00:00:01.600\n<v Speaker 1>ሰላም ወዳጆቻችን\n\n00:00:01.700 --> 00:00:03.000\n<v Speaker 2>እንዴት ናችሁ\n"
+
+def test_srt_prefix_counts_toward_wrap_but_vtt_span_does_not():
+    text = "ሀ" * 30 + " " + "በ" * 10  # 41 characters: one line without a prefix
+    segments = [{"text": text, "start": 0, "end": 1, "speaker": 3}]
+    assert to_srt({"segments": segments}) == "1\n00:00:00,000 --> 00:00:01,000\nSpeaker 3: " + "ሀ" * 30 + "\n" + "በ" * 10 + "\n"
+    assert to_vtt({"segments": segments}) == "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\n<v Speaker 3>" + text + "\n"
+
+def test_null_and_missing_speakers_unchanged():
+    segments = [{"text": "ሰላም", "start": 0, "end": 1, "speaker": None}, {"text": "ቃል", "start": 1, "end": 2}]
+    assert to_srt({"segments": segments}) == "1\n00:00:00,000 --> 00:00:01,000\nሰላም\n\n2\n00:00:01,000 --> 00:00:02,000\nቃል\n"
+    assert to_vtt({"segments": segments}) == "WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nሰላም\n\n00:00:01.000 --> 00:00:02.000\nቃል\n"

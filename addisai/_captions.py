@@ -57,18 +57,32 @@ def _cues(segments: List[Dict[str, Any]], separator: str, numbered: bool) -> Lis
     for index, segment in enumerate(segments, 1):
         lines = [str(index)] if numbered else []
         lines.append("%s --> %s" % (_timestamp(segment["start"], separator), _timestamp(segment["end"], separator)))
-        lines.extend(_wrap(segment["text"]))
+        speaker = segment.get("speaker")
+        if speaker is None:
+            lines.extend(_wrap(segment["text"]))
+        elif numbered:
+            # SRT: the prefix is part of the text and counts toward the 42-character lines.
+            lines.extend(_wrap("Speaker %s: %s" % (speaker, segment["text"])))
+        else:
+            # VTT: a voice span opens the first line and is not counted.
+            wrapped = _wrap(segment["text"]) or [""]
+            lines.append("<v Speaker %s>%s" % (speaker, wrapped[0]))
+            lines.extend(wrapped[1:])
         blocks.append("\n".join(lines))
     return blocks
 
 
 def to_srt(result: Mapping[str, Any]) -> str:
-    """Format a Scribe result's ``segments`` as SubRip (SRT) text; raises if segments are missing."""
+    """Format a Scribe result's ``segments`` as SubRip (SRT) text; raises if segments are missing.
+
+    Segments with a ``speaker`` number get a ``Speaker N: `` prefix."""
     blocks = _cues(_segments(result), ",", True)
     return "\n\n".join(blocks) + "\n" if blocks else ""
 
 
 def to_vtt(result: Mapping[str, Any]) -> str:
-    """Format a Scribe result's ``segments`` as WebVTT text; raises if segments are missing."""
+    """Format a Scribe result's ``segments`` as WebVTT text; raises if segments are missing.
+
+    Segments with a ``speaker`` number get a ``<v Speaker N>`` voice span."""
     blocks = _cues(_segments(result), ".", False)
     return "WEBVTT\n\n" + "\n\n".join(blocks) + "\n" if blocks else "WEBVTT\n"
