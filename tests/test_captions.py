@@ -8,7 +8,7 @@ SEGMENT = {"text": "ሰላም ወዳጆቻችን እንዴት ከረማችሁ �
 def client(handler):
     return AddisAI(api_key="test-secret", http_client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-def test_standard_backend_default_and_timestamps_sent_only_when_set():
+def test_turbo_backend_default_and_timestamps_sent_only_when_set():
     seen = []
     def handler(request):
         seen.append(request.url.params)
@@ -16,7 +16,7 @@ def test_standard_backend_default_and_timestamps_sent_only_when_set():
     addis = client(handler)
     addis.scribe.transcribe(audio=b"a", request_id="a")
     addis.scribe.transcribe(audio=b"a", request_id="b", backend="turbo", timestamps="word")
-    assert seen[0]["backend"] == "standard"
+    assert seen[0]["backend"] == "turbo"   # default since 0.7.0
     assert "timestamps" not in seen[0]
     assert seen[1]["backend"] == "turbo"
     assert seen[1]["timestamps"] == "word"
@@ -88,13 +88,13 @@ def test_speakers_sent_only_when_true():
 def test_speakers_require_turbo_before_http():
     calls = []
     addis = client(lambda r: calls.append(r) or httpx.Response(200, json={"data": RAW}))
-    with pytest.raises(AddisAIError, match="turbo"):
-        addis.scribe.transcribe(audio=b"a", speakers=True)
+    addis.scribe.transcribe(audio=b"a", speakers=True)   # the default backend is turbo since 0.7.0
+    assert calls[-1].url.params["backend"] == "turbo" and calls[-1].url.params["speakers"] == "true"
     with pytest.raises(AddisAIError, match='backend="turbo"'):
         addis.scribe.transcribe(audio=b"a", backend="standard", speakers=True)
     with pytest.raises(AddisAIError, match="speakers"):
         addis.scribe.transcribe(audio=b"a", backend="turbo", speakers="yes")
-    assert calls == []
+    assert len(calls) == 1   # only the valid default call reached HTTP
 
 def test_stream_rejects_speakers_locally():
     calls = []

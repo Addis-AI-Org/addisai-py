@@ -88,7 +88,7 @@ def test_validation_and_recovery_do_not_upload_or_regenerate_audio():
 def test_session_defaults_capabilities_and_wallet_usage():
     def handler(request):
         if request.url.path.endswith("/sessions"):
-            assert json.loads(request.content) == {"backend": "standard", "chunk": "320ms", "request_id": "stable"}
+            assert json.loads(request.content) == {"backend": "turbo", "chunk": "320ms", "request_id": "stable"}   # default since 0.7.0
             return httpx.Response(201, json={"data": TICKET})
         if request.url.path.endswith("/usage"):
             return httpx.Response(200, json={"data": {"balance": 10, "pricing": {"price_per_1000_characters": 3.5}}})
