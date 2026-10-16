@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Scribe: `backend` now defaults to `"turbo"` in `transcribe`, `stream`, `create_session` and `connect`. Turbo is the faster mode, takes many requests at once and costs the same per character. Pass `backend="standard"` to keep the previous behaviour.
+
 ## 0.6.0
 
 - **Scribe speaker labels:** `scribe.transcribe(backend="turbo", speakers=True)`

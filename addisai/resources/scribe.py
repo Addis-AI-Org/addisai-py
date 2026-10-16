@@ -103,12 +103,12 @@ class Scribe:
         return _completion(unwrap_data(self._transport.request("GET", PATH + "/requests/" + request_id,
                            options={**(request_options or {}), "max_retries": 0})))
 
-    def transcribe(self, *, audio: AudioInput, backend: str = "standard", chunk: str = "1120ms",
+    def transcribe(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                    request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
                    request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Transcribe an Amharic file. No automatic retries; recover its request_id after interruptions.
 
-        ``backend`` is ``"standard"`` (default) or ``"turbo"``. ``timestamps="word"`` adds ``words``
+        ``backend`` is ``"turbo"`` (default) or ``"standard"``. ``timestamps="word"`` adds ``words``
         and caption ``segments`` to the result (default ``"none"``, which sends no ``timestamps`` parameter).
         ``speakers=True`` (turbo only; default ``False``, which sends no ``speakers`` parameter) turns on
         word timestamps and adds a ``speaker`` number (or ``None``) to every word and segment, plus a
@@ -119,12 +119,12 @@ class Scribe:
                            query={**params, "stream": "false"}, files=_files(audio), timeout_floor=600,
                            options={**(request_options or {}), "max_retries": 0})))
 
-    def stream(self, *, audio: AudioInput, backend: str = "standard", chunk: str = "1120ms",
+    def stream(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
                request_options: Optional[Options] = None) -> "ScribeTranscriptStream":
         """Upload a file, then iterate partials and settled completion. Use as a context manager.
 
-        ``backend`` defaults to ``"standard"``. Word timestamps and speaker labels are not available here;
+        ``backend`` defaults to ``"turbo"``. Word timestamps and speaker labels are not available here;
         use transcribe().
         """
         if speakers is True:
@@ -139,13 +139,13 @@ class Scribe:
                                         files=_files(audio), options={"timeout": 600, **(request_options or {})})
         return ScribeTranscriptStream(context, params["request_id"])
 
-    def create_session(self, *, backend: str = "standard", chunk: str = "320ms", request_id: Optional[str] = None,
+    def create_session(self, *, backend: str = "turbo", chunk: str = "320ms", request_id: Optional[str] = None,
                        request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Create a one-use ticket on your server, with no automatic issuance retries."""
         return unwrap_data(self._transport.request("POST", PATH + "/sessions", json=_params(backend, chunk, request_id),
                           options={**(request_options or {}), "max_retries": 0}))
 
-    def connect(self, *, backend: str = "standard", chunk: str = "320ms", request_id: Optional[str] = None,
+    def connect(self, *, backend: str = "turbo", chunk: str = "320ms", request_id: Optional[str] = None,
                 request_options: Optional[Options] = None, websocket_factory=None) -> "ScribeConnection":
         session = self.create_session(backend=backend, chunk=chunk, request_id=request_id, request_options=request_options)
         return connect_scribe(session, websocket_factory=websocket_factory)
