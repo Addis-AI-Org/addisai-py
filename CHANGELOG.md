@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+
+- Scribe: longer audio. Uploads up to 30 minutes and 50 MB; live sessions up to 10 minutes (the limit comes from the server's `session.created`, no longer fixed at 180 seconds in the SDK).
+- `scribe.transcribe` waits for long files: when the API answers that the upload is still processing, the SDK polls `recover` every 5 seconds until the result is ready (up to an hour).
+
 ## 0.7.0
 
 - Scribe: `backend` now defaults to `"turbo"` in `transcribe`, `stream`, `create_session` and `connect`. Turbo is the faster mode, takes many requests at once and costs the same per character. Pass `backend="standard"` to keep the previous behaviour.

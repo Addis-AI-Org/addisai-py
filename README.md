@@ -289,9 +289,12 @@ scoped one-use ticket; exported `connect_scribe(session)` opens that ticket's
 socket without account credentials in its URL. `capabilities()` returns model
 limits and `usage()` returns your wallet balance and current rate.
 
-HTTP uploads accept 25 MiB / 180 seconds. File streams emit partials after upload;
-WebSockets accept audio incrementally. HTTP defaults to standard/1120ms chunks; sockets
-to standard/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
+HTTP uploads accept 50 MiB and up to 30 minutes of audio; a live session takes up to 10 minutes.
+`capabilities()` returns the current limits (`max_upload_bytes`, `max_upload_seconds`, `max_live_seconds`).
+A long upload may answer "still processing"; `transcribe` then polls until the result is ready.
+File streams emit partials after upload;
+WebSockets accept audio incrementally. Both default to the turbo backend: HTTP with 1120ms chunks,
+sockets with 320ms. Tickets expire after 60 seconds.
 Only final transcript UTF-16 character units are billed; partials have no separate
 charge. Paid requests/ticket creation are not automatically retried. Disconnecting
 or closing a stream can still bill accepted audio. Recover settled results for 24

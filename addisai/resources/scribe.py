@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Any, Dict, Iterator, Optional
 from urllib.parse import urlsplit
 
-from .._exceptions import AddisAIError, make_api_error
+from .._exceptions import AddisAIError, APIError, make_api_error
 from .._idempotency import ulid
 from .._transport import Options, Transport, _to_error, unwrap_data
 from .speech import AudioInput
@@ -15,6 +16,9 @@ PATH = "/api/v1/scribe"
 MAX_EVENT = 512 * 1024
 BACKENDS = ("standard", "turbo")
 TIMESTAMPS = ("none", "word")
+LIVE_SECONDS = 600       # default live session limit; the server's session.created carries the real one
+POLL_SECONDS = 5
+POLL_LIMIT = 3600        # give up polling a long upload after an hour
 
 
 def _params(backend, chunk, request_id):
@@ -80,8 +84,8 @@ def _files(audio):
     if isinstance(audio, tuple):
         part = audio
     elif isinstance(audio, (bytes, bytearray)):
-        if not audio or len(audio) > 25 * 1024**2:
-            raise AddisAIError("Scribe audio must contain 1 byte to 25 MiB.")
+        if not audio or len(audio) > 50 * 1024**2:
+            raise AddisAIError("Scribe audio must contain 1 byte to 50 MiB.")
         part = ("audio.wav", bytes(audio), "audio/wav")
     else:
         part = ("audio.wav", audio, "audio/wav")
@@ -115,9 +119,24 @@ class Scribe:
         ``speakers`` count to the result.
         """
         params = {**_params(backend, chunk, request_id), **_timestamps(timestamps), **_speakers(speakers, backend)}
-        return _completion(unwrap_data(self._transport.request("POST", PATH + "/transcribe",
+        data = unwrap_data(self._transport.request("POST", PATH + "/transcribe",
                            query={**params, "stream": "false"}, files=_files(audio), timeout_floor=600,
-                           options={**(request_options or {}), "max_retries": 0})))
+                           options={**(request_options or {}), "max_retries": 0}))
+        return _completion(self._settled(data, request_options))
+
+    def _settled(self, data, request_options):
+        """A long upload answers 202 with ``status: "processing"``; poll its request until it is done."""
+        if not (isinstance(data, dict) and data.get("status") == "processing"):
+            return data
+        deadline = time.monotonic() + POLL_LIMIT
+        while True:
+            time.sleep(POLL_SECONDS)
+            try:
+                return unwrap_data(self._transport.request("GET", PATH + "/requests/" + data["request_id"],
+                                   options={**(request_options or {}), "max_retries": 0}))
+            except APIError as exc:
+                if exc.code != "IN_PROGRESS" or time.monotonic() > deadline:
+                    raise
 
     def stream(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
@@ -248,7 +267,7 @@ def connect_scribe(session: Dict[str, Any], *, websocket_factory=None) -> "Scrib
             raise AddisAIError("Scribe session was rejected or expired.")
         connection.session = first
         connection._first = first
-        socket.settimeout(600)
+        socket.settimeout(max(600, float(first.get("max_audio_seconds") or LIVE_SECONDS) + 60))
         return connection
     except Exception:
         socket.close()
@@ -270,8 +289,9 @@ class ScribeConnection:
         """Send raw 16 kHz mono PCM16 little-endian; 100 ms is 3,200 bytes."""
         if self._closed or self._finishing or self.completion is not None:
             raise AddisAIError("Scribe session is not accepting audio.")
-        if not audio or len(audio) % 2 or len(audio) > 64000 or self._audio_bytes + len(audio) > 180 * 32000:
-            raise AddisAIError("Scribe needs PCM16 frames up to two seconds and 180 seconds total.")
+        limit = float((self.session or {}).get("max_audio_seconds") or LIVE_SECONDS)
+        if not audio or len(audio) % 2 or len(audio) > 64000 or self._audio_bytes + len(audio) > limit * 32000:
+            raise AddisAIError(f"Scribe needs PCM16 frames up to two seconds and {limit:g} seconds total.")
         self._socket.send_binary(bytes(audio))
         self._audio_bytes += len(audio)
 
