@@ -139,3 +139,30 @@ def test_interrupted_socket_is_not_success():
     with connect_scribe(TICKET, websocket_factory=lambda url, **opts: Socket()) as live:
         with pytest.raises(AddisAIError, match="billing confirmation"):
             list(live)
+
+def test_long_upload_polls_until_the_result_is_ready(monkeypatch):
+    import addisai.resources.scribe as scribe_module
+    monkeypatch.setattr(scribe_module, "POLL_SECONDS", 0)
+    calls = []
+    def handler(request):
+        calls.append(request.url.path)
+        if request.method == "POST":
+            return httpx.Response(202, json={"data": {"request_id": "stable", "status": "processing", "poll_url": "/api/v1/scribe/requests/stable"}})
+        if len(calls) < 3:
+            return httpx.Response(409, json={"error": {"code": "IN_PROGRESS", "message": "Transcription is still processing."}})
+        return httpx.Response(200, json={"data": {**RAW, "idempotent_replay": True}})
+    result = client(handler).scribe.transcribe(audio=b"audio", request_id="stable")
+    assert result["text"] == RAW["text"]
+    assert calls == ["/api/v1/scribe/transcribe", "/api/v1/scribe/requests/stable", "/api/v1/scribe/requests/stable"]
+
+def test_live_limit_comes_from_the_session():
+    from addisai.resources.scribe import ScribeConnection
+    class Sock:
+        def __init__(self): self.sent = 0
+        def send_binary(self, data): self.sent += len(data)
+    connection = ScribeConnection(Sock(), "stable")
+    connection.session = {"max_audio_seconds": 2}
+    connection.send_audio(b"\0\0" * 16000)
+    connection.send_audio(b"\0\0" * 16000)
+    with pytest.raises(AddisAIError, match="2 seconds total"):
+        connection.send_audio(b"\0\0")
