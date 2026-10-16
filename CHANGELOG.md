@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Batches:** `batches.create_from_requests([...])` uploads many text to speech
+  requests at once; they run off-peak and finish within 24 hours at half the
+  standard price. Also `batches.create`, `retrieve`, `list` (auto-paginating),
+  `cancel`, `requests`, `results` (parsed result and error lines) and `wait_for`.
+- **Files:** `files.upload` (bytes or a path; one request up to 25 MB, signed
+  upload up to 100 MB), `create_signed_upload`, `complete`, `retrieve`, `delete`,
+  `content_url` and `content`. Downloads follow the signed storage link without
+  sending your API key.
+
 ## 0.7.0
 
 - Scribe: `backend` now defaults to `"turbo"` in `transcribe`, `stream`, `create_session` and `connect`. Turbo is the faster mode, takes many requests at once and costs the same per character. Pass `backend="standard"` to keep the previous behaviour.

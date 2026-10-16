@@ -120,7 +120,11 @@ class Transport:
         raw: bool = False,
         timeout_floor: Optional[float] = None,
         options: Optional[Options] = None,
+        allow_redirect: bool = False,
     ) -> Any:
+        """``allow_redirect`` returns a 3xx response (with ``raw``) instead of
+        raising, so a signed storage link is read without being followed with
+        the API key attached. The client never follows redirects itself."""
         options = options or {}
         max_retries = options.get("max_retries", self._max_retries)
         timeout = options.get("timeout", self._timeout)
@@ -151,7 +155,7 @@ class Transport:
             except httpx.TransportError as exc:
                 last_error = APIConnectionError("Connection error.", cause=exc)
             else:
-                if response.is_success:
+                if response.is_success or (allow_redirect and response.is_redirect):
                     return response if raw else _parse_json(response)
                 if attempt < max_retries and self._is_retryable(response.status_code, response.headers):
                     time.sleep(self._retry_delay(attempt, response.headers))

@@ -132,6 +132,35 @@ ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila python examples/realtime.py "Na
 ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane python examples/realtime.py "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
 ```
 
+## Batches (half price, within 24 hours)
+
+Send many text to speech requests at once. They run when demand is low, every
+batch finishes within 24 hours, and only finished requests are billed, at half
+the standard price.
+
+```python
+batch = client.batches.create_from_requests(
+    [
+        {"custom_id": f"chapter-{i}", "text": text, "voice_id": "selam-warm", "language": "am"}
+        for i, text in enumerate(chapters, start=1)
+    ],
+    metadata={"project": "audiobook"},
+)
+
+done = client.batches.wait_for(batch["id"])  # polls every 30 s
+for result in client.batches.results(done["id"]):
+    if result["status"] == "succeeded":
+        audio = client.files.content(result["response"]["audio_file_id"])
+        # save audio
+    else:
+        print(result["custom_id"], result["error"])
+```
+
+Already have a JSONL file (`{"custom_id": "...", "body": {...}}` per line)? Use
+`client.files.upload("batch.jsonl")` then `client.batches.create(input_file_id=...)`.
+`client.batches.cancel(batch_id)` stops queued requests; running ones finish and
+are billed.
+
 ## Chat / LLM
 
 ```python
