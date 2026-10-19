@@ -16,7 +16,7 @@ PATH = "/api/v1/scribe"
 MAX_EVENT = 512 * 1024
 BACKENDS = ("standard", "turbo")
 TIMESTAMPS = ("none", "word")
-LIVE_SECONDS = 600       # default live session limit; the server's session.created carries the real one
+LIVE_SECONDS = 900       # default live session limit; the server's session.created carries the real one
 POLL_SECONDS = 5
 POLL_LIMIT = 3600        # give up polling a long upload after an hour
 
@@ -84,8 +84,8 @@ def _files(audio):
     if isinstance(audio, tuple):
         part = audio
     elif isinstance(audio, (bytes, bytearray)):
-        if not audio or len(audio) > 50 * 1024**2:
-            raise AddisAIError("Scribe audio must contain 1 byte to 50 MiB.")
+        if not audio or len(audio) > 95 * 1024**2:
+            raise AddisAIError("Scribe audio must contain 1 byte to 95 MiB.")
         part = ("audio.wav", bytes(audio), "audio/wav")
     else:
         part = ("audio.wav", audio, "audio/wav")

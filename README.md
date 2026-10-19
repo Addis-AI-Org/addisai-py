@@ -289,7 +289,7 @@ scoped one-use ticket; exported `connect_scribe(session)` opens that ticket's
 socket without account credentials in its URL. `capabilities()` returns model
 limits and `usage()` returns your wallet balance and current rate.
 
-HTTP uploads accept 50 MiB and up to 30 minutes of audio; a live session takes up to 10 minutes.
+HTTP uploads accept 95 MiB and up to one hour of audio (speaker labels included); a live session takes up to 15 minutes.
 `capabilities()` returns the current limits (`max_upload_bytes`, `max_upload_seconds`, `max_live_seconds`).
 A long upload may answer "still processing"; `transcribe` then polls until the result is ready.
 File streams emit partials after upload;
