@@ -5,7 +5,7 @@ from ._clip import VoiceClip
 from ._idempotency import ulid
 from ._languages import ChatLanguage, SttLanguage, TranslateLanguage, VoiceLanguage
 from ._streaming import AudioStream, ChatStream
-from .resources.scribe import ScribeConnection, ScribeTranscriptStream, connect_scribe
+from .resources.scribe import ScribeConnection, ScribeJobs, ScribeTranscriptStream, connect_scribe
 from ._version import __version__
 from .resources import ADDIS_CHAT_MODEL
 from .resources.realtime import RealtimeConnection, connect_realtime, decode_realtime_audio
@@ -39,6 +39,7 @@ __all__ = [
     "AudioStream",
     "RealtimeConnection",
     "ScribeConnection",
+    "ScribeJobs",
     "ScribeTranscriptStream",
     "connect_scribe",
     "to_srt",

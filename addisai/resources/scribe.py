@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import json
+import mimetypes
+import os
 import re
 import time
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, BinaryIO, Callable, Dict, Iterator, Optional, Union
 from urllib.parse import urlsplit
 
-from .._exceptions import AddisAIError, APIError, make_api_error
+from .._exceptions import AddisAIError, APIConnectionError, APIError, make_api_error
 from .._idempotency import ulid
-from .._transport import Options, Transport, _to_error, unwrap_data
+from .._transport import Options, Transport, _parse_json, _to_error, unwrap_data
 from .speech import AudioInput
 
 PATH = "/api/v1/scribe"
@@ -19,6 +21,13 @@ TIMESTAMPS = ("none", "word")
 LIVE_SECONDS = 900       # default live session limit; the server's session.created carries the real one
 POLL_SECONDS = 5
 POLL_LIMIT = 3600        # give up polling a long upload after an hour
+MAX_UPLOAD_BYTES = 95 * 1024**2   # the largest one-request upload (/transcribe and one-request jobs)
+PART_BYTES = 4 * 1024**2          # job part size; the create response carries the server's value
+PART_RETRIES = 3                  # a part is sent again this many times after a connection error
+JOB_POLL_SECONDS = 5
+JOB_POLL_LIMIT = 4 * 3600         # give up waiting for a job after four hours
+
+LongAudioInput = Union[AudioInput, str, "os.PathLike[str]"]
 
 
 def _params(backend, chunk, request_id):
@@ -80,6 +89,81 @@ def _parse(text):
     return _event(value)
 
 
+def _job_params(backend, chunk, request_id, timestamps, speakers):
+    """Validate job parameters. Unlike ``transcribe``, a job always sends ``timestamps`` (default ``"word"``)."""
+    _timestamps(timestamps)
+    return {**_params(backend, chunk, request_id), "timestamps": timestamps, **_speakers(speakers, backend)}
+
+
+def _index(value):
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise AddisAIError("Scribe part index must be a non-negative integer.")
+    return value
+
+
+def _progress(data):
+    if not isinstance(data, dict):
+        raise AddisAIError("Invalid Scribe job response.")
+    return data
+
+
+class _Source:
+    """Long audio to send: its size, a whole-file multipart part, and byte ranges read on demand."""
+
+    def __init__(self, audio: Any) -> None:
+        self.name, self.content_type, self._owned = "audio.wav", "audio/wav", False
+        if isinstance(audio, tuple):
+            if len(audio) != 3:
+                raise AddisAIError("Scribe audio tuples are (filename, data, content_type).")
+            self.name, audio, self.content_type = audio
+        if isinstance(audio, (str, os.PathLike)):
+            path = os.fspath(audio)
+            self.name = os.path.basename(path) or self.name
+            self.content_type = mimetypes.guess_type(self.name)[0] or "application/octet-stream"
+            self._file: Optional[BinaryIO] = open(path, "rb")
+            self._owned = True
+            self._bytes: Optional[bytes] = None
+        elif isinstance(audio, (bytes, bytearray)):
+            self._file, self._bytes = None, bytes(audio)
+        elif hasattr(audio, "read"):
+            if hasattr(audio, "seekable") and not audio.seekable():
+                self._file, self._bytes = None, audio.read()
+            else:
+                self._file, self._bytes = audio, None
+        else:
+            raise AddisAIError("Scribe audio must be bytes, a binary file object, a path or a (filename, data, content_type) tuple.")
+        if self._file is not None:
+            self._file.seek(0, os.SEEK_END)
+            self.size = self._file.tell()
+            self._file.seek(0)
+        else:
+            self.size = len(self._bytes or b"")
+        if self.size <= 0:
+            raise AddisAIError("Scribe audio is empty.")
+
+    def whole(self) -> Any:
+        """The whole file as a multipart part: (filename, bytes or file object, content_type)."""
+        return (self.name, self._bytes if self._file is None else self._file, self.content_type)
+
+    def read(self, start: int, length: int) -> bytes:
+        """Exactly ``length`` bytes from ``start`` (fewer only at the end of the file)."""
+        if self._file is None:
+            return (self._bytes or b"")[start:start + length]
+        self._file.seek(start)
+        pieces, remaining = [], length
+        while remaining > 0:
+            piece = self._file.read(remaining)
+            if not piece:
+                break
+            pieces.append(piece)
+            remaining -= len(piece)
+        return b"".join(pieces)
+
+    def close(self) -> None:
+        if self._owned and self._file is not None:
+            self._file.close()
+
+
 def _files(audio):
     if isinstance(audio, tuple):
         part = audio
@@ -95,6 +179,7 @@ def _files(audio):
 class Scribe:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
+        self.jobs = ScribeJobs(transport)
 
     def capabilities(self, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
         return unwrap_data(self._transport.request("GET", PATH, options=request_options))
@@ -138,6 +223,48 @@ class Scribe:
                 if exc.code != "IN_PROGRESS" or time.monotonic() > deadline:
                     raise
 
+    def transcribe_long(self, *, audio: LongAudioInput, backend: str = "turbo", chunk: str = "1120ms",
+                        request_id: Optional[str] = None, timestamps: str = "word", speakers: bool = False,
+                        on_progress: Optional[Callable[[Dict[str, Any]], Any]] = None,
+                        request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Transcribe a long Amharic file (up to three hours) as a job and wait for its result.
+
+        ``audio`` is ``bytes``, a seekable binary file object (read from its start), a path (``str`` or
+        ``os.PathLike``, opened in binary mode) or a ``(filename, data, content_type)`` tuple. A file of
+        at most 95 MiB goes up in one request (``jobs.upload``); a larger one is declared
+        (``jobs.create``) and sent as 4 MiB parts in index order, skipping parts the server already
+        holds and sending a part again after a connection error, then ``jobs.complete``. The result is
+        then polled every 5 seconds (honouring ``Retry-After``) for up to four hours; ``on_progress``
+        receives each progress dict (``audio_seconds``, ``processed_seconds``, ``chunks``, ...).
+
+        ``backend`` must be ``"turbo"`` for long files (``"standard"`` is refused by the API).
+        ``timestamps`` defaults to ``"word"`` for jobs (``words`` and ``segments`` in the result); pass
+        ``"none"`` for text only. ``speakers=True`` adds speaker numbers over the whole file.
+        ``request_id`` (default: a new ULID) names every call of the job; keep it to ``recover`` the
+        result after an interruption. Paid steps are never retried automatically.
+        """
+        params = _job_params(backend, chunk, request_id, timestamps, speakers)
+        rid = params["request_id"]
+        source = _Source(audio)
+        try:
+            if source.size <= MAX_UPLOAD_BYTES:
+                self.jobs.upload(audio=source.whole(), backend=backend, chunk=chunk, request_id=rid,
+                                 timestamps=timestamps, speakers=speakers, request_options=request_options)
+            else:
+                job = self.jobs.create(request_id=rid, bytes=source.size, backend=backend, chunk=chunk,
+                                       timestamps=timestamps, speakers=speakers, request_options=request_options)
+                part_bytes = int(job.get("part_bytes") or PART_BYTES)
+                parts = int(job.get("parts") or -(-source.size // part_bytes))
+                received = set(job.get("received") or ())
+                for index in range(parts):
+                    if index in received:
+                        continue
+                    self.jobs._put_part_retrying(rid, index, source.read(index * part_bytes, part_bytes), request_options)
+                self.jobs.complete(rid, request_options=request_options)
+        finally:
+            source.close()
+        return self.jobs.wait(rid, on_progress=on_progress, request_options=request_options)
+
     def stream(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
                request_options: Optional[Options] = None) -> "ScribeTranscriptStream":
@@ -168,6 +295,124 @@ class Scribe:
                 request_options: Optional[Options] = None, websocket_factory=None) -> "ScribeConnection":
         session = self.create_session(backend=backend, chunk=chunk, request_id=request_id, request_options=request_options)
         return connect_scribe(session, websocket_factory=websocket_factory)
+
+
+class ScribeJobs:
+    """Long-audio jobs (``scribe.jobs``): the steps behind ``transcribe_long``, for callers that need them one at a time.
+
+    Every method returns the ``data`` dict of the API response as it is. Paid steps (``upload``,
+    ``create``, ``put_part``, ``complete``) are never retried automatically.
+    """
+
+    def __init__(self, transport: Transport) -> None:
+        self._transport = transport
+
+    def upload(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
+               request_id: Optional[str] = None, timestamps: str = "word", speakers: bool = False,
+               request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Create a job from a file of at most 95 MiB in one multipart request; the job starts at once.
+
+        Returns the job's first state (``status: "queued"``, ``poll_url``, ``job_url``), or the current
+        state when the same file and settings were already sent under ``request_id``. ``audio`` is
+        ``bytes``, a binary file object or a ``(filename, data, content_type)`` tuple. Larger files go
+        through ``create`` and ``put_part``.
+        """
+        params = _job_params(backend, chunk, request_id, timestamps, speakers)
+        data = audio[1] if isinstance(audio, tuple) else audio
+        if isinstance(data, (bytes, bytearray)) and len(data) > MAX_UPLOAD_BYTES:
+            raise AddisAIError("Scribe jobs.upload takes at most 95 MiB in one request; "
+                               "declare larger files with jobs.create and send jobs.put_part ranges (or use transcribe_long).")
+        part = audio if isinstance(audio, tuple) else _files(audio)["audio"]
+        return _progress(unwrap_data(self._transport.request(
+            "POST", PATH + "/jobs", query=params, files={"audio": part}, timeout_floor=600,
+            options={**(request_options or {}), "max_retries": 0})))
+
+    def create(self, *, request_id: str, bytes: int, backend: str = "turbo", chunk: str = "1120ms",
+               timestamps: str = "word", speakers: bool = False,
+               request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Declare a job of ``bytes`` bytes (up to 512 MB) to be sent as parts.
+
+        Returns ``part_bytes``, ``parts``, ``received`` (indexes already held; resume from there when
+        the same declaration is sent again) and ``expires_at``.
+        """
+        if isinstance(bytes, bool) or not isinstance(bytes, int) or bytes <= 0:
+            raise AddisAIError("Scribe job bytes must be a positive integer: the size of the file.")
+        params = _job_params(backend, chunk, request_id, timestamps, speakers)
+        body = {"request_id": params["request_id"], "bytes": bytes, "backend": backend, "chunk": chunk,
+                "timestamps": timestamps, "speakers": speakers}
+        return _progress(unwrap_data(self._transport.request(
+            "POST", PATH + "/jobs", json=body, options={**(request_options or {}), "max_retries": 0})))
+
+    def put_part(self, request_id: str, index: int, data: bytes, *,
+                 request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Send part ``index``: the file's bytes ``[index * part_bytes, (index + 1) * part_bytes)``.
+
+        Every part but the last is exactly ``part_bytes`` long. Returns ``index`` and the ``received``
+        list so far. Sending a stored part again with the same bytes is a no-op.
+        """
+        _params("turbo", "1120ms", request_id)
+        _index(index)
+        if not isinstance(data, (bytes, bytearray)) or not data:
+            raise AddisAIError("Scribe part data must be non-empty bytes.")
+        return _progress(unwrap_data(self._transport.request(
+            "PUT", PATH + "/jobs/" + request_id + "/parts/" + str(index), content=bytes(data), timeout_floor=120,
+            options={**(request_options or {}), "max_retries": 0})))
+
+    def _put_part_retrying(self, request_id, index, data, request_options):
+        """``put_part`` sent again after a connection error (never after an API error)."""
+        for attempt in range(PART_RETRIES + 1):
+            try:
+                return self.put_part(request_id, index, data, request_options=request_options)
+            except APIConnectionError:
+                if attempt >= PART_RETRIES:
+                    raise
+                time.sleep(0.5 * 2 ** attempt)
+
+    def complete(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Start the job once every part is there (``409 UPLOAD_INCOMPLETE`` with ``missing`` otherwise).
+
+        Returns the queued state; calling it again returns the state while it runs and the result once done.
+        """
+        _params("turbo", "1120ms", request_id)
+        return _progress(unwrap_data(self._transport.request(
+            "POST", PATH + "/jobs/" + request_id + "/complete", options={**(request_options or {}), "max_retries": 0})))
+
+    def status(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """The job's state and progress: ``status``, ``received``/``parts``/``part_bytes``,
+        ``audio_seconds``, ``processed_seconds``, ``chunks``, ``poll_url``, ``error`` when failed."""
+        _params("turbo", "1120ms", request_id)
+        return _progress(unwrap_data(self._transport.request("GET", PATH + "/jobs/" + request_id, options=request_options)))
+
+    def wait(self, request_id: str, *, on_progress: Optional[Callable[[Dict[str, Any]], Any]] = None,
+             poll_seconds: float = JOB_POLL_SECONDS, timeout: float = JOB_POLL_LIMIT,
+             request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Poll the job's result until it is settled and return it (the same shape as ``transcribe``).
+
+        Each ``202`` progress body goes to ``on_progress``; the SDK then sleeps ``Retry-After`` seconds
+        (``poll_seconds`` when absent). A failed job raises its own API error (``402``, ``422``, ``409``);
+        after ``timeout`` seconds an ``AddisAIError`` asks you to ``recover`` the request later.
+        """
+        _params("turbo", "1120ms", request_id)
+        deadline = time.monotonic() + timeout
+        while True:
+            response = self._transport.request("GET", PATH + "/requests/" + request_id, raw=True,
+                                               options={**(request_options or {}), "max_retries": 0})
+            data = unwrap_data(_parse_json(response))
+            if response.status_code != 202:
+                return _completion(data)
+            if on_progress is not None:
+                on_progress(_progress(data))
+            if time.monotonic() > deadline:
+                raise AddisAIError(f"Scribe job {request_id} is still running after {timeout:g} seconds; "
+                                   "recover the same request_id later.")
+            time.sleep(_retry_after(response.headers.get("retry-after"), poll_seconds))
+
+
+def _retry_after(value, fallback):
+    try:
+        return max(0.0, float(value)) if value is not None else fallback
+    except ValueError:
+        return fallback
 
 
 class ScribeTranscriptStream:

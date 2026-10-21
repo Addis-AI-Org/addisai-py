@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0
+
+- **Scribe long audio (up to three hours):** `scribe.transcribe_long(audio=..., speakers=..., timestamps=..., request_id=..., on_progress=...)` transcribes a file of up to three hours (512 MB) as a job and returns the settled result in the same shape as `transcribe` plus `chunks`. `audio` is `bytes`, a seekable binary file object, a path (`str` or `os.PathLike`) or a `(filename, data, content_type)` tuple. A file of at most 95 MiB goes up in one request; a larger one is declared and sent as 4 MiB parts read from disk in order, skipping parts the server already holds and sending a part again after a connection error. The result is polled every 5 seconds (honouring `Retry-After`) for up to four hours; `on_progress` receives each progress dict (`audio_seconds`, `processed_seconds`, `chunks`). Jobs default to `timestamps="word"`, run on the turbo backend only, and are never retried on paid steps; interrupted callers use `scribe.recover(request_id)`.
+- **`scribe.jobs`** (`ScribeJobs`, exported): the steps behind `transcribe_long`, each returning the API's `data` dict: `upload(audio=...)` (one request), `create(request_id=..., bytes=...)` (declaration), `put_part(request_id, index, data)`, `complete(request_id)`, `status(request_id)` and `wait(request_id, on_progress=..., poll_seconds=5, timeout=14400)`.
+- `Transport.request` accepts `content=bytes`, sent as `application/octet-stream`.
+
 ## 0.8.1
 
 - Tigrinya (`ti`) is documented and typed across every modality it supports: voice generation and real-time sessions (seven native voices, `ti-berhane` by default), chat including attachments and audio input, speech-to-text and translation.

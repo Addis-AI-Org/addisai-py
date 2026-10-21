@@ -282,6 +282,35 @@ Good to know:
   each other.
 - Labels are "Speaker 1", "Speaker 2" and so on, not names.
 
+### Long audio (up to three hours)
+
+Files longer than one upload allows (up to **three hours**, 512 MB) go through a job:
+`transcribe_long()` uploads the file, waits while the API cuts it at pauses, transcribes the
+pieces and stitches them into one transcript with one speaker numbering and one bill, then
+returns the settled result in the same shape as `transcribe()` (plus `chunks`, the number of
+pieces). Jobs run on the turbo backend and return word timestamps by default. A file of at most
+95 MiB goes up in one request; a larger one is sent as 4 MiB parts, resuming from the parts the
+server already holds after a dropped connection. `on_progress` receives each poll's progress.
+
+```python
+from addisai import AddisAI, to_srt, ulid
+
+request_id = ulid()
+with AddisAI() as addis:
+    result = addis.scribe.transcribe_long(
+        audio="meeting.m4a", speakers=True, request_id=request_id,
+        on_progress=lambda p: print(f"{p.get('processed_seconds', 0):.0f}/{p.get('audio_seconds') or '?'} s"))
+print(result["speakers"], result["chunks"], result["usage"]["credits_used"])
+with open("meeting.srt", "w", encoding="utf-8") as f:
+    f.write(to_srt(result))
+# Interrupted? The same request_id returns the result once it is done:
+# result = addis.scribe.recover(request_id)
+```
+
+`addis.scribe.jobs` exposes the steps (`upload`, `create`, `put_part`, `complete`, `status`,
+`wait`) for callers that upload from one process and wait in another. Paid steps are never
+retried automatically; at most two jobs run per account at once (`429 BUSY`).
+
 ### Live audio
 
 Install `pip install "addisai[realtime]"` for `addis.scribe.connect(request_id=...)`.
@@ -293,7 +322,8 @@ scoped one-use ticket; exported `connect_scribe(session)` opens that ticket's
 socket without account credentials in its URL. `capabilities()` returns model
 limits and `usage()` returns your wallet balance and current rate.
 
-HTTP uploads accept 95 MiB and up to one hour of audio (speaker labels included); a live session takes up to 15 minutes.
+HTTP uploads accept 95 MiB and up to one hour of audio (speaker labels included); a live session takes up to 15 minutes;
+`transcribe_long` takes up to three hours as a job.
 `capabilities()` returns the current limits (`max_upload_bytes`, `max_upload_seconds`, `max_live_seconds`).
 A long upload may answer "still processing"; `transcribe` then polls until the result is ready.
 File streams emit partials after upload;

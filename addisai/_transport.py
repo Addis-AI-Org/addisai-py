@@ -64,7 +64,9 @@ class Transport:
         headers.update(options.get("headers") or {})
         if options.get("idempotency_key"):
             headers["Idempotency-Key"] = options["idempotency_key"]
-        if request.get("json") is not None and not request.get("files"):
+        if request.get("content") is not None:
+            headers["Content-Type"] = "application/octet-stream"
+        elif request.get("json") is not None and not request.get("files"):
             headers["Content-Type"] = "application/json"
         return headers
 
@@ -117,10 +119,14 @@ class Transport:
         json: Any = None,
         files: Any = None,
         data: Any = None,
+        content: Optional[bytes] = None,
         raw: bool = False,
         timeout_floor: Optional[float] = None,
         options: Optional[Options] = None,
     ) -> Any:
+        """Send one request. ``content`` sends raw bytes as ``application/octet-stream`` (a job part);
+        ``raw=True`` returns the httpx response instead of its parsed JSON, for callers that need the
+        status code or headers."""
         options = options or {}
         max_retries = options.get("max_retries", self._max_retries)
         timeout = options.get("timeout", self._timeout)
@@ -130,7 +136,7 @@ class Transport:
         merged_query = {**self._default_query, **(query or {}), **(options.get("query") or {})}
         merged_query = {k: v for k, v in merged_query.items() if v is not None}
         url = self._base_url + path
-        headers = self._headers({"json": json, "files": files}, options)
+        headers = self._headers({"json": json, "files": files, "content": content}, options)
 
         last_error: Optional[BaseException] = None
         for attempt in range(max_retries + 1):
@@ -141,6 +147,7 @@ class Transport:
                     params=merged_query or None,
                     json=json if files is None else None,
                     data=data,
+                    content=content,
                     files=files,
                     headers=headers,
                     timeout=timeout,
