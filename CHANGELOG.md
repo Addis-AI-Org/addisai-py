@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.1
+
+- Tigrinya (`ti`) is documented and typed across every modality it supports: voice generation and real-time sessions (seven native voices, `ti-berhane` by default), chat including attachments and audio input, speech-to-text and translation.
+- New typing aliases exported from `addisai`: `ChatLanguage`, `SttLanguage` and `TranslateLanguage`. `chat.completions.create`, `chat.run_tools`, `speech.transcribe` and `translate.create` use them instead of plain `str`. Runtime behaviour is unchanged.
+- Tests cover the Tigrinya wire format for chat (`target_language`), speech-to-text (`language_code`) and translation (`source_language`/`target_language`). Addis Scribe remains Amharic-only.
+
+## 0.8.0
+
+- Scribe: longer audio. Uploads up to one hour and 95 MB (speaker labels included); live sessions up to 15 minutes (the limit comes from the server's `session.created`, no longer fixed at 180 seconds in the SDK).
+- `scribe.transcribe` waits for long files: when the API answers that the upload is still processing, the SDK polls `recover` every 5 seconds until the result is ready (up to an hour).
+
 ## 0.7.0
 
 - Scribe: `backend` now defaults to `"turbo"` in `transcribe`, `stream`, `create_session` and `connect`. Turbo is the faster mode, takes many requests at once and costs the same per character. Pass `backend="standard"` to keep the previous behaviour.

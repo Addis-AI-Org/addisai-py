@@ -55,6 +55,10 @@ language codes are rejected locally before any API request or socket connection.
 Use a matching language and voice ID. `voices.list` returns this three-language
 catalog so you can choose another available voice.
 
+Tigrinya ships seven native voices: `ti-berhane` (default), `ti-senait`, `ti-haben`,
+`ti-rahel`, `ti-filimon`, `ti-danait` and `ti-yonas`. Tigrinya is also accepted by
+chat (`language="ti"`), speech-to-text and translation below.
+
 ## Voice (text‑to‑speech)
 
 ```python
@@ -289,9 +293,12 @@ scoped one-use ticket; exported `connect_scribe(session)` opens that ticket's
 socket without account credentials in its URL. `capabilities()` returns model
 limits and `usage()` returns your wallet balance and current rate.
 
-HTTP uploads accept 25 MiB / 180 seconds. File streams emit partials after upload;
-WebSockets accept audio incrementally. HTTP defaults to standard/1120ms chunks; sockets
-to standard/320ms. Tickets expire after 60 seconds. One request is admitted per wallet.
+HTTP uploads accept 95 MiB and up to one hour of audio (speaker labels included); a live session takes up to 15 minutes.
+`capabilities()` returns the current limits (`max_upload_bytes`, `max_upload_seconds`, `max_live_seconds`).
+A long upload may answer "still processing"; `transcribe` then polls until the result is ready.
+File streams emit partials after upload;
+WebSockets accept audio incrementally. Both default to the turbo backend: HTTP with 1120ms chunks,
+sockets with 320ms. Tickets expire after 60 seconds.
 Only final transcript UTF-16 character units are billed; partials have no separate
 charge. Paid requests/ticket creation are not automatically retried. Disconnecting
 or closing a stream can still bill accepted audio. Recover settled results for 24
@@ -311,7 +318,8 @@ out = addis.translate.create(text="Hello", source="en", target="am")  # am|om|ti
 print(out["text"])
 ```
 
-Speech recognition uses `/api/v2/stt`; confidence may be `None`.
+Tigrinya translates to and from Amharic, Afaan Oromo and English.
+Speech recognition uses `/api/v2/stt`; confidence may be `None` (always for Tigrinya).
 
 ## Legacy audio (deprecated)
 

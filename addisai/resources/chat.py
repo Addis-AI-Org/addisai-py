@@ -7,6 +7,7 @@ import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from .._exceptions import AddisAIError
+from .._languages import ChatLanguage
 from .._streaming import ChatStream
 from .._transport import Options, Transport
 
@@ -24,7 +25,7 @@ class Chat:
         *,
         messages: List[Dict[str, Any]],
         tools: List[Dict[str, Any]],
-        language: str = "am",
+        language: ChatLanguage = "am",
         system: Optional[str] = None,
         persona: Optional[str] = None,
         temperature: Optional[float] = None,
@@ -101,7 +102,7 @@ class Completions:
         self,
         *,
         messages: List[Dict[str, Any]],
-        language: str = "am",
+        language: ChatLanguage = "am",
         model: Optional[str] = None,  # accepted for compatibility; not sent
         system: Optional[str] = None,
         persona: Optional[str] = None,
@@ -164,7 +165,7 @@ class Completions:
 
 def _build_native_body(
     messages: List[Dict[str, Any]],
-    language: str,
+    language: ChatLanguage,
     system: Optional[str],
     persona: Optional[str],
     temperature: Optional[float],

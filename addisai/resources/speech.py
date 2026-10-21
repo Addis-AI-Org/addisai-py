@@ -4,6 +4,7 @@ from __future__ import annotations
 import json as _json
 from typing import Any, BinaryIO, Dict, Optional, Tuple, Union
 
+from .._languages import SttLanguage
 from .._transport import Options, Transport, unwrap_data
 
 AudioInput = Union[bytes, BinaryIO, Tuple[str, Any, str]]
@@ -17,10 +18,12 @@ class Speech:
         self,
         *,
         audio: AudioInput,
-        language: str,
+        language: SttLanguage,
         request_options: Optional[Options] = None,
     ) -> Dict[str, Any]:
-        """Transcribe speech to text. `language` is one of am|om|en|ha|sw."""
+        """Transcribe speech to text. `language` is one of am|om|ti|en|ha|sw.
+
+        Tigrinya (`ti`) may return `confidence` as None."""
         if isinstance(audio, tuple):
             file_part = audio
         elif isinstance(audio, (bytes, bytearray)):
