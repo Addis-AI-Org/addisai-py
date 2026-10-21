@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from .._languages import TranslateLanguage
 from .._transport import Options, Transport, unwrap_data
 
 
@@ -14,11 +15,11 @@ class Translate:
         self,
         *,
         text: str,
-        source: str,
-        target: str,
+        source: TranslateLanguage,
+        target: TranslateLanguage,
         request_options: Optional[Options] = None,
     ) -> Dict[str, Any]:
-        """Translate text between am|om|en. `source` must differ from `target`."""
+        """Translate text between am|om|ti|en. `source` must differ from `target`."""
         body = {"text": text, "source_language": source, "target_language": target}
         data = unwrap_data(
             self._transport.request("POST", "/api/v1/translate", json=body, options=request_options)

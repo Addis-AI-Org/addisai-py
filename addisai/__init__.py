@@ -3,7 +3,7 @@ from ._client import AddisAI
 from ._captions import to_srt, to_vtt
 from ._clip import VoiceClip
 from ._idempotency import ulid
-from ._languages import VoiceLanguage
+from ._languages import ChatLanguage, SttLanguage, TranslateLanguage, VoiceLanguage
 from ._streaming import AudioStream, ChatStream
 from .resources.scribe import ScribeConnection, ScribeTranscriptStream, connect_scribe
 from ._version import __version__
@@ -32,6 +32,9 @@ __all__ = [
     "AddisAI",
     "VoiceClip",
     "VoiceLanguage",
+    "ChatLanguage",
+    "SttLanguage",
+    "TranslateLanguage",
     "ChatStream",
     "AudioStream",
     "RealtimeConnection",
