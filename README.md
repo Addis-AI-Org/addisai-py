@@ -40,7 +40,7 @@ addis = AddisAI(
 )
 ```
 
-The key is read from `api_key=` or `ADDIS_API_KEY`, never logged, and redacted in `repr()`. The SDK only talks to the Cloudflare‑wrapped API and refuses raw `*.supabase.co` hosts.
+The key is read from `api_key=` or `ADDIS_API_KEY`, never logged, and redacted in `repr()`. The SDK only talks to the Addis AI API (`https://api.addisassistant.com`) and refuses raw backend hosts.
 
 ## Languages
 
@@ -177,7 +177,7 @@ print(final["choices"][0]["message"]["content"])
 
 ### Streaming (beta)
 
-`stream=True` returns a `ChatStream` — iterate for OpenAI‑style chunk dicts, or use the accumulators:
+`stream=True` returns a `ChatStream` — iterate for chat-completion chunk dicts, or use the accumulators:
 
 ```python
 stream = addis.chat.completions.create(

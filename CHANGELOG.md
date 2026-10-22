@@ -96,12 +96,12 @@ Initial release of the official Addis AI SDK for Python.
 
 - **Voice (TTS):** `voice.generate`, `voices.list/preview`, `voice.estimate`,
   `voice.usage`, `voice.clips.*`, `VoiceClip` helpers.
-- **Chat / LLM:** OpenAI-compatible `chat.completions.create` with `system`,
+- **Chat / LLM:** familiar `chat.completions.create` with `system`,
   `persona`, tools/function calling, attachments, audio input; `chat.run_tools`
   agent loop; beta SSE streaming via `ChatStream`.
 - **Speech-to-text:** `speech.transcribe`. **Translation:** `translate.create`.
 - **Reliability/security:** automatic retries with backoff, idempotent paid
-  calls, normalized exception hierarchy, secret redaction, Cloudflare-only
+  calls, normalized exception hierarchy, secret redaction, Addis API-only
   transport. Built on `httpx`. Typed (`py.typed`).
 
 > Persona, system prompts, and function calling depend on a backend rollout; they

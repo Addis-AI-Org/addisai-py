@@ -54,7 +54,7 @@ class Transport:
             "User-Agent": f"addisai-python/{__version__}",
             "X-Addis-Client": f"addisai-python/{__version__}",
         }
-        # Auth: API keys go in x-api-key. A Supabase JWT goes in Authorization.
+        # Auth: API keys go in x-api-key. A session JWT goes in Authorization.
         # Never send both — the voice function rejects a non-JWT bearer token.
         if _looks_like_jwt(self._api_key):
             headers["Authorization"] = f"Bearer {self._api_key}"
@@ -196,7 +196,7 @@ def _looks_like_jwt(key: str) -> bool:
 
 
 def unwrap_data(body: Any) -> Any:
-    """Native envelopes wrap payloads as {"data": ...}; OpenAI route returns raw."""
+    """Native envelopes wrap payloads as {"data": ...}; the chat-completions route returns raw."""
     if isinstance(body, dict) and "data" in body:
         return body["data"]
     return body

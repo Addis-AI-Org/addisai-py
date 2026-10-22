@@ -205,7 +205,7 @@ def test_chat_maps_to_native_and_hides_model():
 
     addis, _ = client_with(handler)
     res = addis.chat.completions.create(
-        model="gpt-4o", language="am", system="Be concise.",
+        model="any-model", language="am", system="Be concise.",
         messages=[
             {"role": "user", "content": "Tell me about coffee."},
             {"role": "assistant", "content": "Coffee is Ethiopian."},

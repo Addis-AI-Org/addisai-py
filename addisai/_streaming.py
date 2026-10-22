@@ -52,7 +52,7 @@ def _finish(reason: Optional[str]) -> Optional[str]:
 
 
 class ChatStream:
-    """An OpenAI-style streaming chat response. Iterate to receive chunk dicts."""
+    """A chat-completions-style streaming chat response. Iterate to receive chunk dicts."""
 
     def __init__(self, transport, body: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> None:
         self._cm = transport.stream("POST", "/api/v1/chat_generate", json=body, options=options)

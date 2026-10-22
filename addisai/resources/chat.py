@@ -1,4 +1,4 @@
-"""Chat / LLM resource (OpenAI-compatible, with system, persona, tools)."""
+"""Chat / LLM resource (chat-completions shape, with system, persona, tools)."""
 from __future__ import annotations
 
 import json as _json
@@ -115,7 +115,7 @@ class Completions:
         audio: Optional[Any] = None,
         request_options: Optional[Options] = None,
     ):
-        """Create a chat completion. Returns a dict (OpenAI shape), or a
+        """Create a chat completion. Returns a dict (chat-completion shape), or a
         :class:`ChatStream` when ``stream=True``."""
         if stream:
             if attachments or audio:
@@ -174,7 +174,7 @@ def _build_native_body(
     tool_choice: Optional[Any],
     stream: bool = False,
 ) -> Dict[str, Any]:
-    """Convert OpenAI-style messages into the backend's native chat request
+    """Convert chat-completions messages into the backend's native chat request
     (``prompt`` + ``conversation_history`` + folded ``system``)."""
     system_parts: List[str] = []
     if system:
@@ -270,5 +270,7 @@ def _native_to_openai(data: Dict[str, Any]) -> Dict[str, Any]:
             "clean": data.get("transcription_clean"),
         }
     if data.get("uploaded_attachments"):
+        # Each fileUri is an opaque Addis file reference (addis://files/<id>);
+        # callers send it back unchanged as fileData.fileUri in later turns.
         completion["uploaded_attachments"] = data["uploaded_attachments"]
     return completion
