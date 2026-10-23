@@ -136,6 +136,41 @@ ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila python examples/realtime.py "Na
 ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane python examples/realtime.py "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
 ```
 
+## Batches (half price, within 24 hours)
+
+Send many text to speech requests at once. They run when demand is low, every
+batch finishes within 24 hours, and only finished requests are billed, at half
+the standard price.
+
+```python
+batch = client.batches.create_from_requests(
+    [
+        # Tigrinya text, e.g. "ሎሚ ጽቡቕ መዓልቲ እዩ።"
+        {"custom_id": f"chapter-{i}", "text": text, "voice_id": "ti-berhane", "language": "ti"}
+        for i, text in enumerate(chapters, start=1)
+    ],
+    metadata={"project": "audiobook"},
+)
+
+done = client.batches.wait_for(batch["id"])  # polls every 30 s
+for result in client.batches.results(done["id"]):
+    if result["status"] == "succeeded":
+        audio = client.files.content(result["response"]["audio_file_id"])
+        # save audio
+    else:
+        print(result["custom_id"], result["error"])
+```
+
+Batches support the same languages and voices as `voice.generate`: Amharic
+(`am`), Afaan Oromo (`om`) and Tigrinya (`ti`, with any of its seven voices).
+Each request's `voice_id` must match its `language`; other languages raise
+`AddisAIError` before anything is uploaded.
+
+Already have a JSONL file (`{"custom_id": "...", "body": {...}}` per line)? Use
+`client.files.upload("batch.jsonl")` then `client.batches.create(input_file_id=...)`.
+`client.batches.cancel(batch_id)` stops queued requests; running ones finish and
+are billed.
+
 ## Chat / LLM
 
 ```python

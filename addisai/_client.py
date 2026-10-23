@@ -11,6 +11,8 @@ from ._transport import Transport
 from .resources import Chat, Legacy, Speech, Translate, Voice, Voices
 from .resources.realtime import Realtime
 from .resources.scribe import Scribe
+from .resources.batches import Batches
+from .resources.files import Files
 
 
 class AddisAI:
@@ -50,6 +52,10 @@ class AddisAI:
         self.scribe = Scribe(self._transport)
         self.translate = Translate(self._transport)
         self.realtime = Realtime(self._transport)
+        #: Batch input and result files.
+        self.files = Files(self._transport)
+        #: Many requests at once, run off-peak within 24 hours at half price.
+        self.batches = Batches(self._transport, self.files)
         #: Deprecated. Use ``voice``.
         self.legacy = Legacy(self._transport)
 

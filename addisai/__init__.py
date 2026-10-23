@@ -8,6 +8,7 @@ from ._streaming import AudioStream, ChatStream
 from .resources.scribe import ScribeConnection, ScribeJobs, ScribeTranscriptStream, connect_scribe
 from ._version import __version__
 from .resources import ADDIS_CHAT_MODEL
+from .resources.batches import to_batch_jsonl
 from .resources.realtime import RealtimeConnection, connect_realtime, decode_realtime_audio
 from ._exceptions import (
     AddisAIError,
@@ -48,6 +49,7 @@ __all__ = [
     "decode_realtime_audio",
     "ulid",
     "ADDIS_CHAT_MODEL",
+    "to_batch_jsonl",
     "__version__",
     "AddisAIError",
     "APIError",
