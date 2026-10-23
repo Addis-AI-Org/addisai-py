@@ -242,6 +242,11 @@ class Scribe:
         ``"none"`` for text only. ``speakers=True`` adds speaker numbers over the whole file.
         ``request_id`` (default: a new ULID) names every call of the job; keep it to ``recover`` the
         result after an interruption. Paid steps are never retried automatically.
+
+        Interrupting the upload (``KeyboardInterrupt``, e.g. Ctrl-C) cancels the job (``jobs.cancel``)
+        before the interrupt propagates, so an abandoned upload does not hold one of the account's
+        long-file slots. Once the job is queued, an interrupt only stops the waiting: the job runs on
+        and is read later with ``recover(request_id)`` (or call ``jobs.cancel`` yourself).
         """
         params = _job_params(backend, chunk, request_id, timestamps, speakers)
         rid = params["request_id"]
@@ -261,6 +266,9 @@ class Scribe:
                         continue
                     self.jobs._put_part_retrying(rid, index, source.read(index * part_bytes, part_bytes), request_options)
                 self.jobs.complete(rid, request_options=request_options)
+        except KeyboardInterrupt:
+            self.jobs._cancel_quietly(rid, request_options)
+            raise
         finally:
             source.close()
         return self.jobs.wait(rid, on_progress=on_progress, request_options=request_options)
@@ -376,6 +384,24 @@ class ScribeJobs:
         _params("turbo", "1120ms", request_id)
         return _progress(unwrap_data(self._transport.request(
             "POST", PATH + "/jobs/" + request_id + "/complete", options={**(request_options or {}), "max_retries": 0})))
+
+    def cancel(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
+        """Cancel a job; nothing is charged.
+
+        An upload or a queued job is removed and its request ID is free again; a processing job is
+        stopped and ends failed with ``REQUEST_CANCELLED`` (its request ID stays used). Returns
+        ``{"request_id", "status": "cancelled", "was", "request_id_reusable"}``. A finished job raises
+        ``409 JOB_FINISHED``; an unknown one ``404 NOT_FOUND``.
+        """
+        _params("turbo", "1120ms", request_id)
+        return unwrap_data(self._transport.request("DELETE", PATH + "/jobs/" + request_id, options=request_options))
+
+    def _cancel_quietly(self, request_id, request_options):
+        """``cancel`` for an interrupted upload: best effort (the job may not exist yet), never raises."""
+        try:
+            self.cancel(request_id, request_options={**(request_options or {}), "max_retries": 0, "timeout": 15})
+        except Exception:
+            pass
 
     def status(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
         """The job's state and progress: ``status``, ``received``/``parts``/``part_bytes``,

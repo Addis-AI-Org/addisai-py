@@ -214,3 +214,65 @@ def test_wait_gives_up_after_its_timeout(monkeypatch):
     with pytest.raises(AddisAIError, match="recover"):
         client(handler).scribe.jobs.wait("job1", on_progress=progress.append, timeout=0)
     assert progress == [PROGRESS]
+
+CANCELLED = {"request_id": "job1", "status": "cancelled", "was": "uploading", "request_id_reusable": True}
+
+def test_cancel_sends_delete_and_returns_the_answer():
+    calls = []
+    def handler(request):
+        calls.append((request.method, request.url.path))
+        if request.url.path.endswith("/gone"):
+            return httpx.Response(409, json={"error": {"code": "JOB_FINISHED", "message": "Finished."}, "status": 409})
+        return httpx.Response(200, json={"data": CANCELLED})
+    addis = client(handler)
+    assert addis.scribe.jobs.cancel("job1") == CANCELLED
+    with pytest.raises(Exception) as finished:
+        addis.scribe.jobs.cancel("gone")
+    assert getattr(finished.value, "code", None) == "JOB_FINISHED"
+    with pytest.raises(AddisAIError, match="request_id"):
+        addis.scribe.jobs.cancel("bad/id")
+    assert calls == [("DELETE", "/api/v1/scribe/jobs/job1"), ("DELETE", "/api/v1/scribe/jobs/gone")]
+
+def test_an_interrupted_upload_cancels_its_own_job_and_reraises(monkeypatch):
+    monkeypatch.setattr(scribe_module, "MAX_UPLOAD_BYTES", 8)
+    no_sleep(monkeypatch)
+    calls, received = [], set()
+    upload = parts_handler(received, calls)
+    def handler(request):
+        if request.method == "PUT" and request.url.path.endswith("/1"):
+            calls.append((request.method, request.url.path)); raise KeyboardInterrupt   # Ctrl-C mid-part
+        if request.method == "DELETE":
+            calls.append((request.method, request.url.path)); return httpx.Response(200, json={"data": CANCELLED})
+        return upload(request)
+    with pytest.raises(KeyboardInterrupt):
+        client(handler).scribe.transcribe_long(audio=FILE, request_id="job1", speakers=True)
+    assert calls == [("POST", "/api/v1/scribe/jobs"), ("PUT", "/api/v1/scribe/jobs/job1/parts/0"), ("PUT", "/api/v1/scribe/jobs/job1/parts/1"),
+                     ("DELETE", "/api/v1/scribe/jobs/job1")]
+
+def test_an_interrupted_one_request_upload_cancels_and_a_failed_cancel_keeps_the_interrupt():
+    calls = []
+    def handler(request):
+        calls.append((request.method, request.url.path))
+        if request.method == "POST":
+            raise KeyboardInterrupt
+        return httpx.Response(404, json={"error": {"code": "NOT_FOUND", "message": "Job not found."}, "status": 404})
+    with pytest.raises(KeyboardInterrupt):
+        client(handler).scribe.transcribe_long(audio=b"audio-bytes", request_id="job1")
+    assert calls == [("POST", "/api/v1/scribe/jobs"), ("DELETE", "/api/v1/scribe/jobs/job1")]
+
+def test_other_upload_errors_and_an_interrupt_while_waiting_leave_the_job(monkeypatch):
+    no_sleep(monkeypatch)
+    calls = []
+    def handler(request):
+        calls.append((request.method, request.url.path))
+        if request.method == "POST":
+            return httpx.Response(202, json={"data": QUEUED})
+        raise KeyboardInterrupt   # while polling: the job is queued and runs on
+    with pytest.raises(KeyboardInterrupt):
+        client(handler).scribe.transcribe_long(audio=b"audio-bytes", request_id="job1")
+    def busy(request):
+        calls.append((request.method, request.url.path))
+        return httpx.Response(429, json={"error": {"code": "BUSY", "message": "Busy."}, "status": 429})
+    with pytest.raises(Exception):
+        client(busy).scribe.transcribe_long(audio=b"audio-bytes", request_id="job1", request_options={"max_retries": 0})
+    assert not [c for c in calls if c[0] == "DELETE"]

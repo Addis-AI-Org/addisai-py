@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0
+
+- **Scribe jobs can be cancelled:** `scribe.jobs.cancel(request_id)` (`DELETE /api/v1/scribe/jobs/{id}`). Nothing is
+  charged. An upload or queued job is removed and its request ID is free again; a processing job is stopped and
+  ends failed with `REQUEST_CANCELLED` (its request ID stays used); a finished job is `409 JOB_FINISHED`.
+- `transcribe_long` cancels its own job on `KeyboardInterrupt` (Ctrl-C) before the upload is complete, so an interrupted call no longer holds one of the account's two
+  long-file slots. Once the job is queued, an interrupt only stops the waiting (`recover` reads the result later).
+
 ## 0.9.0
 
 - **Batches:** `batches.create_from_requests([...])` uploads many text to speech
