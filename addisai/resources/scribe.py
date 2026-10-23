@@ -341,7 +341,11 @@ class ScribeJobs:
         """Declare a job of ``bytes`` bytes (up to 512 MB) to be sent as parts.
 
         Returns ``part_bytes``, ``parts``, ``received`` (indexes already held; resume from there when
-        the same declaration is sent again) and ``expires_at``.
+        the same declaration is sent again) and ``expires_at``: the Unix time at which the unfinished
+        upload expires, 30 minutes after its last new part (or the declaration). Each new part moves it
+        forward, never past 24 hours after the declaration; status reads, a new declaration and a resent
+        part do not. Once it passes, the job is gone (``404 NOT_FOUND``), it no longer counts toward the
+        account's two long files, and the request ID is free: declare it again to start over.
         """
         if isinstance(bytes, bool) or not isinstance(bytes, int) or bytes <= 0:
             raise AddisAIError("Scribe job bytes must be a positive integer: the size of the file.")
@@ -356,7 +360,9 @@ class ScribeJobs:
         """Send part ``index``: the file's bytes ``[index * part_bytes, (index + 1) * part_bytes)``.
 
         Every part but the last is exactly ``part_bytes`` long. Returns ``index`` and the ``received``
-        list so far. Sending a stored part again with the same bytes is a no-op.
+        list so far. While the upload is open, sending a stored part again with the same bytes is a
+        no-op. After ``complete``, or for a job made with ``upload``, the job takes no more parts:
+        ``409 UPLOAD_CLOSED``.
         """
         _params("turbo", "1120ms", request_id)
         _index(index)
@@ -386,7 +392,7 @@ class ScribeJobs:
             "POST", PATH + "/jobs/" + request_id + "/complete", options={**(request_options or {}), "max_retries": 0})))
 
     def cancel(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Cancel a job; nothing is charged.
+        """Cancel a job; nothing is charged, also for a job stopped while processing.
 
         An upload or a queued job is removed and its request ID is free again; a processing job is
         stopped and ends failed with ``REQUEST_CANCELLED`` (its request ID stays used). Returns
@@ -405,7 +411,8 @@ class ScribeJobs:
 
     def status(self, request_id: str, *, request_options: Optional[Options] = None) -> Dict[str, Any]:
         """The job's state and progress: ``status``, ``received``/``parts``/``part_bytes``,
-        ``audio_seconds``, ``processed_seconds``, ``chunks``, ``poll_url``, ``error`` when failed."""
+        ``audio_seconds``, ``processed_seconds``, ``chunks``, ``poll_url``, ``error`` when failed, and
+        ``expires_at`` (for an unfinished upload, see ``create``)."""
         _params("turbo", "1120ms", request_id)
         return _progress(unwrap_data(self._transport.request("GET", PATH + "/jobs/" + request_id, options=request_options)))
 
