@@ -13,6 +13,10 @@ ChatLanguage = Literal["am", "om", "ti"]
 #: Languages supported for speech-to-text.
 SttLanguage = Literal["am", "om", "ti", "en", "ha", "sw"]
 
+#: Languages supported by Addis Scribe (transcription, streaming, live sessions, long-audio jobs).
+#: ``"om"`` (Afaan Oromo) runs on the turbo backend only.
+ScribeLanguage = Literal["am", "om"]
+
 #: Languages supported for translation.
 TranslateLanguage = Literal["am", "om", "ti", "en"]
 
