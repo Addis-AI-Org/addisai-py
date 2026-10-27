@@ -1,4 +1,4 @@
-"""Amharic Scribe transcription. Account credentials stay on the application server."""
+"""Addis Scribe transcription (Amharic and Afaan Oromo). Account credentials stay on the application server."""
 from __future__ import annotations
 
 import json
@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from .._exceptions import AddisAIError, APIConnectionError, APIError, make_api_error
 from .._idempotency import ulid
+from .._languages import ScribeLanguage
 from .._transport import Options, Transport, _parse_json, _to_error, unwrap_data
 from .speech import AudioInput
 
@@ -44,6 +45,19 @@ def _timestamps(value):
     if value not in TIMESTAMPS:
         raise AddisAIError('Scribe timestamps must be "none" or "word".')
     return {} if value == "none" else {"timestamps": value}
+
+
+def _language(value):
+    """Validate ``language``; it reaches the wire only when the caller sets it (omitted means Amharic).
+
+    Other language codes go to the API, which answers ``422 UNSUPPORTED_LANGUAGE``; Afaan Oromo
+    (``"om"``) with ``backend="standard"`` is refused there too (``422``).
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, str) or not value:
+        raise AddisAIError('Scribe language must be "am" (Amharic) or "om" (Afaan Oromo).')
+    return {"language": value}
 
 
 def _speakers(value, backend):
@@ -89,10 +103,11 @@ def _parse(text):
     return _event(value)
 
 
-def _job_params(backend, chunk, request_id, timestamps, speakers):
+def _job_params(backend, chunk, request_id, timestamps, speakers, language=None):
     """Validate job parameters. Unlike ``transcribe``, a job always sends ``timestamps`` (default ``"word"``)."""
     _timestamps(timestamps)
-    return {**_params(backend, chunk, request_id), "timestamps": timestamps, **_speakers(speakers, backend)}
+    return {**_params(backend, chunk, request_id), "timestamps": timestamps, **_speakers(speakers, backend),
+            **_language(language)}
 
 
 def _index(value):
@@ -194,16 +209,21 @@ class Scribe:
 
     def transcribe(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                    request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
+                   language: Optional[ScribeLanguage] = None,
                    request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Transcribe an Amharic file. No automatic retries; recover its request_id after interruptions.
+        """Transcribe an Amharic or Afaan Oromo file. No automatic retries; recover its request_id after interruptions.
 
         ``backend`` is ``"turbo"`` (default) or ``"standard"``. ``timestamps="word"`` adds ``words``
         and caption ``segments`` to the result (default ``"none"``, which sends no ``timestamps`` parameter).
         ``speakers=True`` (turbo only; default ``False``, which sends no ``speakers`` parameter) turns on
         word timestamps and adds a ``speaker`` number (or ``None``) to every word and segment, plus a
         ``speakers`` count to the result.
+
+        ``language`` is ``"am"`` (Amharic) or ``"om"`` (Afaan Oromo, turbo only); the default ``None``
+        sends no ``language`` parameter, which means Amharic.
         """
-        params = {**_params(backend, chunk, request_id), **_timestamps(timestamps), **_speakers(speakers, backend)}
+        params = {**_params(backend, chunk, request_id), **_timestamps(timestamps), **_speakers(speakers, backend),
+                  **_language(language)}
         data = unwrap_data(self._transport.request("POST", PATH + "/transcribe",
                            query={**params, "stream": "false"}, files=_files(audio), timeout_floor=600,
                            options={**(request_options or {}), "max_retries": 0}))
@@ -226,8 +246,9 @@ class Scribe:
     def transcribe_long(self, *, audio: LongAudioInput, backend: str = "turbo", chunk: str = "1120ms",
                         request_id: Optional[str] = None, timestamps: str = "word", speakers: bool = False,
                         on_progress: Optional[Callable[[Dict[str, Any]], Any]] = None,
+                        language: Optional[ScribeLanguage] = None,
                         request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Transcribe a long Amharic file (up to three hours) as a job and wait for its result.
+        """Transcribe a long Amharic or Afaan Oromo file (up to three hours) as a job and wait for its result.
 
         ``audio`` is ``bytes``, a seekable binary file object (read from its start), a path (``str`` or
         ``os.PathLike``, opened in binary mode) or a ``(filename, data, content_type)`` tuple. A file of
@@ -243,21 +264,26 @@ class Scribe:
         ``request_id`` (default: a new ULID) names every call of the job; keep it to ``recover`` the
         result after an interruption. Paid steps are never retried automatically.
 
+        ``language`` is ``"am"`` (Amharic) or ``"om"`` (Afaan Oromo, turbo only); the default ``None``
+        sends no ``language`` parameter, which means Amharic.
+
         Interrupting the upload (``KeyboardInterrupt``, e.g. Ctrl-C) cancels the job (``jobs.cancel``)
         before the interrupt propagates, so an abandoned upload does not hold one of the account's
         long-file slots. Once the job is queued, an interrupt only stops the waiting: the job runs on
         and is read later with ``recover(request_id)`` (or call ``jobs.cancel`` yourself).
         """
-        params = _job_params(backend, chunk, request_id, timestamps, speakers)
+        params = _job_params(backend, chunk, request_id, timestamps, speakers, language)
         rid = params["request_id"]
         source = _Source(audio)
         try:
             if source.size <= MAX_UPLOAD_BYTES:
                 self.jobs.upload(audio=source.whole(), backend=backend, chunk=chunk, request_id=rid,
-                                 timestamps=timestamps, speakers=speakers, request_options=request_options)
+                                 timestamps=timestamps, speakers=speakers, language=language,
+                                 request_options=request_options)
             else:
                 job = self.jobs.create(request_id=rid, bytes=source.size, backend=backend, chunk=chunk,
-                                       timestamps=timestamps, speakers=speakers, request_options=request_options)
+                                       timestamps=timestamps, speakers=speakers, language=language,
+                                       request_options=request_options)
                 part_bytes = int(job.get("part_bytes") or PART_BYTES)
                 parts = int(job.get("parts") or -(-source.size // part_bytes))
                 received = set(job.get("received") or ())
@@ -275,11 +301,15 @@ class Scribe:
 
     def stream(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
+               language: Optional[ScribeLanguage] = None,
                request_options: Optional[Options] = None) -> "ScribeTranscriptStream":
         """Upload a file, then iterate partials and settled completion. Use as a context manager.
 
         ``backend`` defaults to ``"turbo"``. Word timestamps and speaker labels are not available here;
         use transcribe().
+
+        ``language`` is ``"am"`` (Amharic) or ``"om"`` (Afaan Oromo, turbo only); the default ``None``
+        sends no ``language`` parameter, which means Amharic.
         """
         if speakers is True:
             raise AddisAIError('Scribe speaker labels are available only for completed uploads; '
@@ -289,19 +319,29 @@ class Scribe:
             raise AddisAIError('Scribe timestamps are available only for completed uploads; '
                                'use transcribe(timestamps="word") instead of stream().')
         params = _params(backend, chunk, request_id)
-        context = self._transport.stream("POST", PATH + "/transcribe", query={**params, "stream": "true"},
+        context = self._transport.stream("POST", PATH + "/transcribe",
+                                        query={**params, **_language(language), "stream": "true"},
                                         files=_files(audio), options={"timeout": 600, **(request_options or {})})
         return ScribeTranscriptStream(context, params["request_id"])
 
     def create_session(self, *, backend: str = "turbo", chunk: str = "320ms", request_id: Optional[str] = None,
+                       language: Optional[ScribeLanguage] = None,
                        request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Create a one-use ticket on your server, with no automatic issuance retries."""
-        return unwrap_data(self._transport.request("POST", PATH + "/sessions", json=_params(backend, chunk, request_id),
+        """Create a one-use ticket on your server, with no automatic issuance retries.
+
+        ``language`` is ``"am"`` (Amharic) or ``"om"`` (Afaan Oromo, turbo only), sent in the JSON body;
+        the default ``None`` leaves it out, which means Amharic.
+        """
+        body = {**_params(backend, chunk, request_id), **_language(language)}
+        return unwrap_data(self._transport.request("POST", PATH + "/sessions", json=body,
                           options={**(request_options or {}), "max_retries": 0}))
 
     def connect(self, *, backend: str = "turbo", chunk: str = "320ms", request_id: Optional[str] = None,
+                language: Optional[ScribeLanguage] = None,
                 request_options: Optional[Options] = None, websocket_factory=None) -> "ScribeConnection":
-        session = self.create_session(backend=backend, chunk=chunk, request_id=request_id, request_options=request_options)
+        """Create a ticket (see ``create_session``, including ``language``) and open its socket."""
+        session = self.create_session(backend=backend, chunk=chunk, request_id=request_id, language=language,
+                                      request_options=request_options)
         return connect_scribe(session, websocket_factory=websocket_factory)
 
 
@@ -317,6 +357,7 @@ class ScribeJobs:
 
     def upload(self, *, audio: AudioInput, backend: str = "turbo", chunk: str = "1120ms",
                request_id: Optional[str] = None, timestamps: str = "word", speakers: bool = False,
+               language: Optional[ScribeLanguage] = None,
                request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Create a job from a file of at most 95 MiB in one multipart request; the job starts at once.
 
@@ -324,8 +365,11 @@ class ScribeJobs:
         state when the same file and settings were already sent under ``request_id``. ``audio`` is
         ``bytes``, a binary file object or a ``(filename, data, content_type)`` tuple. Larger files go
         through ``create`` and ``put_part``.
+
+        ``language`` is ``"am"`` (Amharic) or ``"om"`` (Afaan Oromo, turbo only); the default ``None``
+        sends no ``language`` parameter, which means Amharic.
         """
-        params = _job_params(backend, chunk, request_id, timestamps, speakers)
+        params = _job_params(backend, chunk, request_id, timestamps, speakers, language)
         data = audio[1] if isinstance(audio, tuple) else audio
         if isinstance(data, (bytes, bytearray)) and len(data) > MAX_UPLOAD_BYTES:
             raise AddisAIError("Scribe jobs.upload takes at most 95 MiB in one request; "
@@ -336,7 +380,7 @@ class ScribeJobs:
             options={**(request_options or {}), "max_retries": 0})))
 
     def create(self, *, request_id: str, bytes: int, backend: str = "turbo", chunk: str = "1120ms",
-               timestamps: str = "word", speakers: bool = False,
+               timestamps: str = "word", speakers: bool = False, language: Optional[ScribeLanguage] = None,
                request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Declare a job of ``bytes`` bytes (up to 512 MB) to be sent as parts.
 
@@ -346,14 +390,17 @@ class ScribeJobs:
         forward, never past 24 hours after the declaration; status reads, a new declaration and a resent
         part do not. Once it passes, the job is gone (``404 NOT_FOUND``), it no longer counts toward the
         account's two long files, and the request ID is free: declare it again to start over.
+
+        ``language`` is ``"am"`` (Amharic) or ``"om"`` (Afaan Oromo), sent as the ``language`` query
+        parameter; the default ``None`` sends none, which means Amharic.
         """
         if isinstance(bytes, bool) or not isinstance(bytes, int) or bytes <= 0:
             raise AddisAIError("Scribe job bytes must be a positive integer: the size of the file.")
-        params = _job_params(backend, chunk, request_id, timestamps, speakers)
+        params = _job_params(backend, chunk, request_id, timestamps, speakers, language)
         body = {"request_id": params["request_id"], "bytes": bytes, "backend": backend, "chunk": chunk,
                 "timestamps": timestamps, "speakers": speakers}
         return _progress(unwrap_data(self._transport.request(
-            "POST", PATH + "/jobs", json=body, options={**(request_options or {}), "max_retries": 0})))
+            "POST", PATH + "/jobs", json=body, query=_language(language) or None, options={**(request_options or {}), "max_retries": 0})))
 
     def put_part(self, request_id: str, index: int, data: bytes, *,
                  request_options: Optional[Options] = None) -> Dict[str, Any]:
