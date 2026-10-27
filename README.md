@@ -231,8 +231,8 @@ Streaming is beta and not available with tools.
 
 ## Addis Scribe
 
-Scribe transcribes **Amharic**. Choose `backend="standard"` (default) or
-`backend="turbo"`; both bill the same character rate.
+Scribe transcribes **Amharic** (`am`, the default) and **Afaan Oromo** (`om`). Choose
+`backend="turbo"` (default) or `backend="standard"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
 ```python
@@ -253,6 +253,23 @@ with AddisAI() as addis:
                 elif event["type"] == "transcript.completed":
                     print(event["data"]["usage"])
 ```
+
+### Afaan Oromo
+
+Pass `language="om"` to any Scribe call: `transcribe`, `stream`, `transcribe_long`, `jobs.upload` / `jobs.create`
+and live `connect` / `create_session`. Oromo runs on the turbo backend (the default) and supports word timestamps,
+captions, speaker labels and long files at the same rate. Without `language` a request is Amharic, exactly as before.
+
+```python
+with AddisAI() as addis:
+    with open("oromo.wav", "rb") as audio:
+        result = addis.scribe.transcribe(audio=audio, language="om", request_id=ulid())
+    print(result["language"], result["model"])  # om addis-scribe-oromo-streaming
+    with addis.scribe.connect(language="om", request_id=ulid()) as live:  # live Oromo session
+        ...  # send_audio(frame) / finish() as in "Live audio" below
+```
+
+`capabilities()["languages"]` lists each language's model, backends and speaker support.
 
 ### Word timestamps and captions
 
