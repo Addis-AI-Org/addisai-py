@@ -345,13 +345,16 @@ with open("meeting.srt", "w", encoding="utf-8") as f:
 
 `addis.scribe.jobs` exposes the steps (`upload`, `create`, `put_part`, `complete`, `status`,
 `wait`, `cancel`) for callers that upload from one process and wait in another. Paid steps are never
-retried automatically; at most two jobs run per account at once (`429 BUSY`).
+retried automatically; at most two jobs run per account at once (`429 BUSY`). A part sent after
+`complete` gets `409 UPLOAD_CLOSED`.
 
 Ctrl-C (`KeyboardInterrupt`) during the upload cancels the job, so it does not hold one of those
-two slots; an upload left idle for 30 minutes stops counting on its own. Once the job is queued,
-an interrupt only stops the waiting. `addis.scribe.jobs.cancel(request_id)` stops a job yourself
-(nothing is charged): an upload or queued job is removed and its request ID is free again; a
-processing one ends with `REQUEST_CANCELLED`.
+two slots. An unfinished upload also expires on its own 30 minutes after its last new part
+(`expires_at` in `jobs.status`): it stops counting, it is deleted, and a later `transcribe_long`
+with the same `request_id` sends the file again from the start. Once the job is queued, an
+interrupt only stops the waiting. `addis.scribe.jobs.cancel(request_id)` stops a job yourself;
+nothing is charged, even for a job stopped while processing. An upload or queued job is removed
+and its request ID is free again; a processing one ends with `REQUEST_CANCELLED`.
 
 ### Live audio
 

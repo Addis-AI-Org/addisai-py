@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1
+
+- Scribe job docs: `expires_at` is 30 minutes after an unfinished upload's last new part, moves forward with each new
+  part, and is never more than 24 hours after the declaration; once it passes, the job is gone (`404 NOT_FOUND`), it no
+  longer counts toward the account's two long files, and the request ID is free. `put_part` documents
+  `409 UPLOAD_CLOSED` after `complete`. `jobs.cancel` charges nothing, also for a job stopped while processing.
+  No behaviour changes.
+
 ## 0.10.0
 
 - **Scribe jobs can be cancelled:** `scribe.jobs.cancel(request_id)` (`DELETE /api/v1/scribe/jobs/{id}`). Nothing is
