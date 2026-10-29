@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+- **Scribe transcribes Tigrinya:** pass `language="ti"` to `scribe.transcribe`, `scribe.stream`,
+  `scribe.create_session` / `scribe.connect` (live), `scribe.transcribe_long` and `scribe.jobs.upload` / `jobs.create`,
+  exactly as for Afaan Oromo. Tigrinya results carry `"language": "ti"` and `"model": "addis-scribe-tigrinya-streaming"`.
+  Tigrinya runs on the turbo backend only (the API answers `422` for `backend="standard"`); word timestamps, captions,
+  speaker labels and long files work as for Amharic, at the same per-character rate.
+- `ScribeLanguage` now includes `"ti"`. Without `language`, requests are Amharic, exactly as before.
+
 ## 0.11.0
 
 - **Scribe transcribes Afaan Oromo:** pass `language="om"` to `scribe.transcribe`, `scribe.stream`,
