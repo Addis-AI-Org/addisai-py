@@ -122,11 +122,11 @@ def test_job_declaration_sends_language_as_a_query_parameter_only_when_set(monke
 
 def test_server_refusals_pass_through():
     seen = []
-    refusal = httpx.Response(422, json={"error": {"code": "UNSUPPORTED_LANGUAGE", "message": "Use language=am|om."}})
+    refusal = httpx.Response(422, json={"error": {"code": "UNSUPPORTED_LANGUAGE", "message": "Use language=am|om|ti."}})
     with pytest.raises(APIError) as exc:
-        recording(seen, refusal).scribe.transcribe(audio=b"audio", request_id="om1", language="ti")
+        recording(seen, refusal).scribe.transcribe(audio=b"audio", request_id="om1", language="xx")
     assert exc.value.status == 422 and exc.value.code == "UNSUPPORTED_LANGUAGE"
-    assert seen[0].url.params["language"] == "ti"
+    assert seen[0].url.params["language"] == "xx"
 
 
 def test_invalid_language_values_fail_locally_before_any_request():
