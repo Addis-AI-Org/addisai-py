@@ -1,4 +1,4 @@
-"""Addis Scribe transcription (Amharic, Afaan Oromo and Tigrinya).
+"""Addis Scribe transcription (Amharic, Afaan Oromo, Tigrinya, Hausa, Sidama, Wolaytta and Swahili).
 
 Account credentials stay on the application server.
 """
@@ -53,13 +53,14 @@ def _timestamps(value):
 def _language(value):
     """Validate ``language``; it reaches the wire only when the caller sets it (omitted means Amharic).
 
-    Other language codes go to the API, which answers ``422 UNSUPPORTED_LANGUAGE``; Afaan Oromo
-    (``"om"``) and Tigrinya (``"ti"``) with ``backend="standard"`` are refused there too (``422``).
+    Other language codes go to the API, which answers ``422 UNSUPPORTED_LANGUAGE``; every language but
+    Amharic with ``backend="standard"`` is refused there too (``422``).
     """
     if value is None:
         return {}
     if not isinstance(value, str) or not value:
-        raise AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo) or "ti" (Tigrinya).')
+        raise AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo), "ti" (Tigrinya), '
+                           '"ha" (Hausa), "sid" (Sidama), "wal" (Wolaytta) or "sw" (Swahili).')
     return {"language": value}
 
 
@@ -214,7 +215,7 @@ class Scribe:
                    request_id: Optional[str] = None, timestamps: str = "none", speakers: bool = False,
                    language: Optional[ScribeLanguage] = None,
                    request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Transcribe an Amharic, Afaan Oromo or Tigrinya file.
+        """Transcribe a file in any Scribe language (Amharic unless ``language`` says otherwise).
 
         No automatic retries; recover its request_id after interruptions.
 
@@ -224,8 +225,9 @@ class Scribe:
         word timestamps and adds a ``speaker`` number (or ``None``) to every word and segment, plus a
         ``speakers`` count to the result.
 
-        ``language`` is ``"am"`` (Amharic), ``"om"`` (Afaan Oromo, turbo only) or ``"ti"`` (Tigrinya,
-        turbo only); the default ``None`` sends no ``language`` parameter, which means Amharic.
+        ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        only. The default ``None`` sends no ``language`` parameter, which means Amharic.
         """
         params = {**_params(backend, chunk, request_id), **_timestamps(timestamps), **_speakers(speakers, backend),
                   **_language(language)}
@@ -253,7 +255,7 @@ class Scribe:
                         on_progress: Optional[Callable[[Dict[str, Any]], Any]] = None,
                         language: Optional[ScribeLanguage] = None,
                         request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Transcribe a long Amharic, Afaan Oromo or Tigrinya file (up to three hours) as a job and wait for its result.
+        """Transcribe a long file in any Scribe language (up to three hours) as a job and wait for its result.
 
         ``audio`` is ``bytes``, a seekable binary file object (read from its start), a path (``str`` or
         ``os.PathLike``, opened in binary mode) or a ``(filename, data, content_type)`` tuple. A file of
@@ -269,8 +271,9 @@ class Scribe:
         ``request_id`` (default: a new ULID) names every call of the job; keep it to ``recover`` the
         result after an interruption. Paid steps are never retried automatically.
 
-        ``language`` is ``"am"`` (Amharic), ``"om"`` (Afaan Oromo, turbo only) or ``"ti"`` (Tigrinya,
-        turbo only); the default ``None`` sends no ``language`` parameter, which means Amharic.
+        ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        only. The default ``None`` sends no ``language`` parameter, which means Amharic.
 
         Interrupting the upload (``KeyboardInterrupt``, e.g. Ctrl-C) cancels the job (``jobs.cancel``)
         before the interrupt propagates, so an abandoned upload does not hold one of the account's
@@ -313,8 +316,9 @@ class Scribe:
         ``backend`` defaults to ``"turbo"``. Word timestamps and speaker labels are not available here;
         use transcribe().
 
-        ``language`` is ``"am"`` (Amharic), ``"om"`` (Afaan Oromo, turbo only) or ``"ti"`` (Tigrinya,
-        turbo only); the default ``None`` sends no ``language`` parameter, which means Amharic.
+        ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        only. The default ``None`` sends no ``language`` parameter, which means Amharic.
         """
         if speakers is True:
             raise AddisAIError('Scribe speaker labels are available only for completed uploads; '
@@ -334,8 +338,9 @@ class Scribe:
                        request_options: Optional[Options] = None) -> Dict[str, Any]:
         """Create a one-use ticket on your server, with no automatic issuance retries.
 
-        ``language`` is ``"am"`` (Amharic), ``"om"`` (Afaan Oromo, turbo only) or ``"ti"`` (Tigrinya,
-        turbo only), sent in the JSON body; the default ``None`` leaves it out, which means Amharic.
+        ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        only. It is sent in the JSON body; the default ``None`` leaves it out, which means Amharic.
         """
         body = {**_params(backend, chunk, request_id), **_language(language)}
         return unwrap_data(self._transport.request("POST", PATH + "/sessions", json=body,
@@ -371,8 +376,9 @@ class ScribeJobs:
         ``bytes``, a binary file object or a ``(filename, data, content_type)`` tuple. Larger files go
         through ``create`` and ``put_part``.
 
-        ``language`` is ``"am"`` (Amharic), ``"om"`` (Afaan Oromo, turbo only) or ``"ti"`` (Tigrinya,
-        turbo only); the default ``None`` sends no ``language`` parameter, which means Amharic.
+        ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        only. The default ``None`` sends no ``language`` parameter, which means Amharic.
         """
         params = _job_params(backend, chunk, request_id, timestamps, speakers, language)
         data = audio[1] if isinstance(audio, tuple) else audio
@@ -396,8 +402,8 @@ class ScribeJobs:
         part do not. Once it passes, the job is gone (``404 NOT_FOUND``), it no longer counts toward the
         account's two long files, and the request ID is free: declare it again to start over.
 
-        ``language`` is ``"am"`` (Amharic), ``"om"`` (Afaan Oromo) or ``"ti"`` (Tigrinya), sent as the
-        ``language`` query parameter; the default ``None`` sends none, which means Amharic.
+        ``language`` is a ``ScribeLanguage`` (``"am"``, ``"om"``, ``"ti"``, ``"ha"``, ``"sid"``, ``"wal"`` or
+        ``"sw"``), sent as the ``language`` query parameter; the default ``None`` sends none, which means Amharic.
         """
         if isinstance(bytes, bool) or not isinstance(bytes, int) or bytes <= 0:
             raise AddisAIError("Scribe job bytes must be a positive integer: the size of the file.")

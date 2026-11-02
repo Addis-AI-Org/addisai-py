@@ -23,7 +23,7 @@ def recording(seen, response):
 
 
 def test_scribe_language_alias_includes_tigrinya():
-    assert typing.get_args(ScribeLanguage) == ("am", "om", "ti")
+    assert "ti" in typing.get_args(ScribeLanguage)
 
 
 def test_transcribe_sends_language_ti_as_a_query_parameter():
