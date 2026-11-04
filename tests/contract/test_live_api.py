@@ -1,5 +1,5 @@
 """Contract tests against the live public API with a real key. They spend a little credit (about 35 short
-generations and 14 short transcriptions), so they run only when ``ADDIS_CONTRACT_API_KEY`` is set: by hand, or
+generations, 14 short transcriptions, 7 HTTP streams and 7 real-time turns), so they run only when ``ADDIS_CONTRACT_API_KEY`` is set: by hand, or
 from the manual ``contract`` workflow. Never point them at a load test."""
 import io
 import os
@@ -87,3 +87,11 @@ def test_live_session_transcribes_each_language(addis, speech, language):
 def test_streaming_languages_stream(addis, language):
     audio = addis.voice.stream(voice_id=DEFAULT_VOICES[language], text=TEXT[language], language=language)
     assert len(audio.read()) > 4000
+
+
+@pytest.mark.parametrize("language", REALTIME_LANGUAGES)
+def test_realtime_sessions_speak(addis, language):
+    with addis.realtime.connect(voice_id=DEFAULT_VOICES[language], language=language, max_text_characters=200) as voice:
+        audio = b"".join(voice.speak(TEXT[language], ulid()))
+        assert len(audio) > 4000, f"{language}: realtime returned {len(audio)} bytes"
+        assert voice.last_completion is not None
