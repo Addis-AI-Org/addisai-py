@@ -67,7 +67,7 @@ def test_every_launch_voice_synthesizes(addis, voice_id):
 def test_upload_transcribes_each_language(addis, speech, language):
     result = addis.scribe.transcribe(audio=("speech.wav", speech[language][0], "audio/wav"), language=language,
                                      request_id=ulid())
-    assert result["language"] == language
+    assert result.get("language", "am") == language  # Amharic, the default, is not echoed
     assert result["text"].strip(), f"{language}: empty transcript"
 
 
