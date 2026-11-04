@@ -4,6 +4,11 @@ name: contract
 # catalog matches the SDK. Manual only: it spends a little credit from the key in ADDIS_CONTRACT_API_KEY.
 on:
   workflow_dispatch:
+    inputs:
+      filter:
+        description: "Optional pytest -k expression to re-run only some tests (blank runs all)"
+        required: false
+        type: string
 
 jobs:
   contract:
@@ -19,7 +24,8 @@ jobs:
         run: test -n "$ADDIS_CONTRACT_API_KEY" || { echo "::error::Set the ADDIS_CONTRACT_API_KEY secret first."; exit 1; }
         env:
           ADDIS_CONTRACT_API_KEY: ${{ secrets.ADDIS_CONTRACT_API_KEY }}
-      - run: pytest -v tests/contract
+      - run: pytest -v tests/contract ${FILTER:+-k "$FILTER"}
         env:
+          FILTER: ${{ inputs.filter }}
           ADDIS_CONTRACT_API_KEY: ${{ secrets.ADDIS_CONTRACT_API_KEY }}
           ADDIS_DRIFT: "1"
