@@ -10,9 +10,10 @@ from ._exceptions import AddisAIError
 VoiceLanguage = Literal["am", "om", "ti", "sw", "ha", "sid", "wal"]
 VOICE_LANGUAGES = ("am", "om", "ti", "sw", "ha", "sid", "wal")
 
-#: Languages supported for streamed speech (``voice.stream``) and real-time sessions (``realtime``).
-RealtimeLanguage = Literal["am", "om", "ti", "sw"]
-REALTIME_LANGUAGES = ("am", "om", "ti", "sw")
+#: Languages supported for streamed speech (``voice.stream``) and real-time sessions (``realtime``): since 0.14.0 the
+#: same seven as :data:`VoiceLanguage`.
+RealtimeLanguage = Literal["am", "om", "ti", "sw", "ha", "sid", "wal"]
+REALTIME_LANGUAGES = ("am", "om", "ti", "sw", "ha", "sid", "wal")
 
 #: Languages supported by the deprecated legacy audio endpoint (``legacy.audio``).
 LegacyLanguage = Literal["am", "om", "ti"]
@@ -68,8 +69,7 @@ def validate_voice_language(value: object) -> None:
 
 def validate_realtime_language(value: object) -> None:
     if value not in REALTIME_LANGUAGES:
-        raise AddisAIError("Streamed and real-time voice language must be " + _choices(REALTIME_LANGUAGES)
-                           + ". Use voice.generate for other languages.")
+        raise AddisAIError("Streamed and real-time voice language must be " + _choices(REALTIME_LANGUAGES) + ".")
 
 
 def validate_legacy_language(value: object) -> None:

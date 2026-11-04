@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.0
+
+- **Streaming and real time in Hausa, Sidama and Wolaytta:** `voice.stream`, `realtime.create_session`,
+  `realtime.connect` and `connect_realtime` take `language="ha"`, `"sid"` and `"wal"` with their voices
+  (`ha-mustapha`, `sid-tigist`, `wal-tona` and the rest), so streaming now covers all seven voice languages.
+  `RealtimeLanguage` and `REALTIME_LANGUAGES` equal `VoiceLanguage` and `VOICE_LANGUAGES`.
+
 ## 0.13.0
 
 - **Scribe transcribes Hausa, Sidama, Wolaytta and Swahili:** pass `language="ha"`, `"sid"`, `"wal"` or `"sw"` to

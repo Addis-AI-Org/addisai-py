@@ -59,7 +59,7 @@ class Voice:
                client_request_id: Optional[str] = None, request_options: Optional[Options] = None) -> AudioStream:
         """Yield MP3 phrases as they arrive. metadata is set after billing completes.
 
-        Streaming covers am, om, ti and sw; use :meth:`generate` for ha, sid and wal."""
+        Streaming covers every voice language."""
         validate_realtime_language(language)
         validate_voice_id(voice_id, language)
         if output_format != "mp3_44100":
