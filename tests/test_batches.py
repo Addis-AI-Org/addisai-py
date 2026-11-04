@@ -80,8 +80,8 @@ def test_create_from_requests_uploads_jsonl_then_creates():
     client, calls = client_with(handler)
     client.batches.create_from_requests(
         [
-            {"custom_id": "a", "text": "ሰላም", "voice_id": "selam-warm", "language": "am"},
-            {"custom_id": "b", "text": "Akkam", "voice_id": "ayana", "language": "om",
+            {"custom_id": "a", "text": "ሰላም", "voice_id": "am-hamen", "language": "am"},
+            {"custom_id": "b", "text": "Akkam", "voice_id": "om-bikila", "language": "om",
              "output_format": "wav_44100", "voice_settings": {"speed": 60}},
         ],
         metadata={"project": "ch3"},
@@ -92,7 +92,7 @@ def test_create_from_requests_uploads_jsonl_then_creates():
     content = upload.content.decode("utf-8")
     assert 'name="purpose"' in content and "batch_input" in content
     assert 'filename="batch.jsonl"' in content
-    assert '{"custom_id": "a", "body": {"text": "ሰላም", "voice_id": "selam-warm", "language": "am", "output_format": "mp3_44100"}}' in content
+    assert '{"custom_id": "a", "body": {"text": "ሰላም", "voice_id": "am-hamen", "language": "am", "output_format": "mp3_44100"}}' in content
     assert json.loads(calls[1].content)["input_file_id"] == FILE_ID
 
 
@@ -234,7 +234,7 @@ def test_tigrinya_batch_lines_carry_ti_and_each_native_voice():
     assert lines[0]["body"]["text"] == "ሎሚ ጽቡቕ መዓልቲ እዩ።"
 
 
-@pytest.mark.parametrize("language", ["sid", "wal", "ha", "sw", "en", "fr", "", "unknown", None])
+@pytest.mark.parametrize("language", ["en", "fr", "", "unknown", None])
 def test_batch_rejects_other_languages_before_any_request(language):
     from addisai import AddisAIError
 

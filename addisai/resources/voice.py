@@ -6,7 +6,8 @@ from typing import Any, Dict, Iterator, List, Optional
 from .._clip import VoiceClip, map_clip
 from .._exceptions import AddisAIError
 from .._idempotency import ulid
-from .._languages import VoiceLanguage, validate_voice_language
+from .._languages import (RealtimeLanguage, VoiceLanguage, validate_realtime_language, validate_voice_id,
+                          validate_voice_language)
 from .._streaming import AudioStream
 from .._transport import Options, Transport, unwrap_data
 
@@ -31,6 +32,7 @@ class Voice:
     ) -> VoiceClip:
         """Synthesize speech and return the generated clip."""
         validate_voice_language(language)
+        validate_voice_id(voice_id, language)
         crid = client_request_id or ulid()
         body = {
             "text": text,
@@ -52,11 +54,14 @@ class Voice:
         )
         return map_clip(data, self._transport.http_client, crid)
 
-    def stream(self, *, voice_id: str, text: str, language: VoiceLanguage,
+    def stream(self, *, voice_id: str, text: str, language: RealtimeLanguage,
                output_format: str = "mp3_44100", voice_settings: Optional[Dict[str, float]] = None,
                client_request_id: Optional[str] = None, request_options: Optional[Options] = None) -> AudioStream:
-        """Yield MP3 phrases as they arrive. metadata is set after billing completes."""
-        validate_voice_language(language)
+        """Yield MP3 phrases as they arrive. metadata is set after billing completes.
+
+        Streaming covers am, om, ti and sw; use :meth:`generate` for ha, sid and wal."""
+        validate_realtime_language(language)
+        validate_voice_id(voice_id, language)
         if output_format != "mp3_44100":
             raise AddisAIError("voice.stream supports MP3. Use voice.generate for other formats.")
         body = {"text": text, "language": language, "voice_id": voice_id,
@@ -75,6 +80,7 @@ class Voice:
         request_options: Optional[Options] = None,
     ) -> Dict[str, Any]:
         validate_voice_language(language)
+        validate_voice_id(voice_id, language)
         body = {"text": text, "language": language, "voice_id": voice_id, "output_format": output_format}
         return unwrap_data(
             self._transport.request("POST", "/api/v1/voice/estimate", json=body, options=request_options)

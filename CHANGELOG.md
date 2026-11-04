@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.13.0
+
+- **Scribe transcribes Hausa, Sidama, Wolaytta and Swahili:** pass `language="ha"`, `"sid"`, `"wal"` or `"sw"` to
+  `scribe.transcribe`, `scribe.stream`, `scribe.create_session` / `scribe.connect` (live), `scribe.transcribe_long` and
+  `scribe.jobs.upload` / `jobs.create`, exactly as for Afaan Oromo and Tigrinya. Results carry the language code and
+  the model: `addis-scribe-hausa-streaming`, `addis-scribe-sidama-streaming`, `addis-scribe-wolaytta-streaming` or
+  `addis-scribe-swahili-streaming`. All four run on the turbo backend only (the API answers `422` for
+  `backend="standard"`); word timestamps, captions and long files work as for Amharic, at the same per-character rate.
+  Speaker labels work in Hausa, Sidama and Wolaytta; Swahili has none (`capabilities()["languages"]["sw"]["speakers"]`
+  is `False`).
+- `ScribeLanguage` now includes `"ha"`, `"sid"`, `"wal"` and `"sw"`. Without `language`, requests are Amharic, exactly
+  as before.
+- **Voices in Swahili, Hausa, Sidama and Wolaytta:** `voice.generate`, `voice.estimate`, batches, `voices.list` and
+  `voice.clips.list` take `language="sw"`, `"ha"`, `"sid"` and `"wal"` next to `am`, `om` and `ti`. Voices: `sw-rashid`
+  (default), `sw-neema`, `sw-hassan`, `sw-bakari`, `sw-amina`, `sw-juma`, `sw-zainab`; `ha-mustapha` (default),
+  `ha-sani`, `ha-usman`, `ha-musa`; `sid-tigist` (default), `sid-desta`, `sid-bereket`, `sid-selam`, `sid-alemu`;
+  `wal-tona` (default), `wal-almaz`, `wal-amado`, `wal-gobe`, `wal-hiwot`.
+- `voice.stream` and `realtime` take `am`, `om`, `ti` and `sw` (new type `RealtimeLanguage`); `ha`, `sid` and `wal` raise
+  locally with a pointer to `voice.generate`. The deprecated `legacy.audio` keeps `am`, `om` and `ti` (`LegacyLanguage`).
+- A `voice_id` must be `<language>-<name>` and match the request's `language`; a mismatch raises `AddisAIError` before
+  any request. New exports `VOICE_LANGUAGES`, `REALTIME_LANGUAGES`, `VOICES` and `DEFAULT_VOICES` mirror the public
+  catalog; `voices.list` stays the source of truth.
+- `voices.list` now returns voices in all seven languages (it used to drop anything outside `am`, `om` and `ti`).
+
 ## 0.12.0
 
 - **Scribe transcribes Tigrinya:** pass `language="ti"` to `scribe.transcribe`, `scribe.stream`,

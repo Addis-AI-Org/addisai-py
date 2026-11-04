@@ -7,8 +7,8 @@ if len(sys.argv) != 2:
     raise SystemExit('Usage: python examples/realtime.py "A complete sentence to speak"')
 
 language = os.getenv("ADDIS_VOICE_LANGUAGE", "am")
-if language not in ("am", "om", "ti"):
-    raise SystemExit("ADDIS_VOICE_LANGUAGE must be am, om, or ti.")
+if language not in ("am", "om", "ti", "sw"):
+    raise SystemExit("ADDIS_VOICE_LANGUAGE must be am, om, ti or sw (real time). Use voice.generate for ha, sid and wal.")
 
 with AddisAI() as addis:
     voice_id = os.getenv("ADDIS_VOICE_ID")

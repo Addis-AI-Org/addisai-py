@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 from .._exceptions import AddisAIError
 from .._idempotency import ulid
-from .._languages import VoiceLanguage, validate_voice_language
+from .._languages import RealtimeLanguage, validate_realtime_language, validate_voice_id
 from .._transport import Options, Transport, unwrap_data
 
 
@@ -16,17 +16,18 @@ class Realtime:
     def __init__(self, transport: Transport) -> None:
         self._transport = transport
 
-    def create_session(self, *, voice_id: str, language: VoiceLanguage, audio_format: str = "mp3",
+    def create_session(self, *, voice_id: str, language: RealtimeLanguage, audio_format: str = "mp3",
                        max_text_characters: int = 5000, max_audio_seconds: Optional[int] = None, request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Create a voice-scoped, one-use ticket valid for 60 seconds."""
-        validate_voice_language(language)
+        """Create a voice-scoped, one-use ticket valid for 60 seconds. Real time covers am, om, ti and sw."""
+        validate_realtime_language(language)
+        validate_voice_id(voice_id, language)
         return unwrap_data(self._transport.request("POST", "/api/v1/realtime/sessions",
                            json={"voice_id": voice_id, "language": language, "audio_format": audio_format,
                                  "max_text_characters": max_text_characters,
                                  **({"max_audio_seconds": max_audio_seconds} if max_audio_seconds is not None else {})},
                            options={"max_retries": 0, **(request_options or {})}))
 
-    def connect(self, *, voice_id: str, language: VoiceLanguage, audio_format: str = "mp3",
+    def connect(self, *, voice_id: str, language: RealtimeLanguage, audio_format: str = "mp3",
                 max_text_characters: int = 5000, max_audio_seconds: Optional[int] = None, request_options: Optional[Options] = None,
                 websocket_factory=None) -> "RealtimeConnection":
         """Create a ticket and open its socket. Install ``addisai[realtime]``."""
@@ -37,7 +38,7 @@ class Realtime:
 
 def connect_realtime(session: Dict[str, Any], *, websocket_factory=None) -> "RealtimeConnection":
     """Connect with only a scoped ticket; no developer key is sent to the socket."""
-    validate_voice_language(session.get("language"))
+    validate_realtime_language(session.get("language"))
     url = session["websocket_url"]
     parsed = urlsplit(url)
     if (parsed.username or parsed.password or parsed.query or parsed.fragment or
