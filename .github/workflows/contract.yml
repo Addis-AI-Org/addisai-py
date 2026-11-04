@@ -1,0 +1,25 @@
+name: contract
+
+# Live contract tests: every launch voice synthesizes, every Scribe language transcribes (upload and live), and the
+# catalog matches the SDK. Manual only: it spends a little credit from the key in ADDIS_CONTRACT_API_KEY.
+on:
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    if: ${{ github.repository_owner == 'Addis-AI-Org' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,realtime]"
+      - name: Require the key
+        run: test -n "$ADDIS_CONTRACT_API_KEY" || { echo "::error::Set the ADDIS_CONTRACT_API_KEY secret first."; exit 1; }
+        env:
+          ADDIS_CONTRACT_API_KEY: ${{ secrets.ADDIS_CONTRACT_API_KEY }}
+      - run: pytest -v tests/contract
+        env:
+          ADDIS_CONTRACT_API_KEY: ${{ secrets.ADDIS_CONTRACT_API_KEY }}
+          ADDIS_DRIFT: "1"

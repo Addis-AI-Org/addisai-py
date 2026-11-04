@@ -1,6 +1,6 @@
 # addisai (Python)
 
-The official [Addis AI](https://addisassistant.com) SDK for Python — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, with examples for **Amharic (`am`)**, **Afaan Oromo (`om`)**, and **Tigrinya (`ti`)**.
+The official [Addis AI](https://addisassistant.com) SDK for Python — voice (text‑to‑speech), chat/LLM with system prompts, personas and function calling, speech‑to‑text, and translation, for **Amharic (`am`)**, **Afaan Oromo (`om`)**, **Tigrinya (`ti`)**, **Swahili (`sw`)**, **Hausa (`ha`)**, **Sidama (`sid`)** and **Wolaytta (`wal`)**.
 
 Mirrors the [Node.js SDK](https://github.com/Addis-AI-Org/addisai-js) surface, Pythonic and `snake_case`.
 
@@ -44,20 +44,38 @@ The key is read from `api_key=` or `ADDIS_API_KEY`, never logged, and redacted i
 
 ## Languages
 
-| Language | Code | Example voice | Voice ID |
-| --- | --- | --- | --- |
-| Amharic | `am` | Hamen | `am-hamen` |
-| Afaan Oromo | `om` | Bikila | `om-bikila` |
-| Tigrinya | `ti` | Berhane | `ti-berhane` |
+<!-- languages:start -->
+| Language | Code | Voices (default first) | Streaming and real time | Scribe (speech-to-text) |
+| --- | --- | --- | --- | --- |
+| Amharic | `am` | `am-hamen` and 18 more (`voices.list(language="am")`) | yes | yes, with speakers |
+| Afaan Oromo | `om` | `om-bikila`, `om-ayyaantuu`, `om-leensaa`, `om-hawi`, `om-diriba`, `om-leta`, `om-ebba`, `om-chala`, `om-obse` | yes | yes, with speakers |
+| Tigrinya | `ti` | `ti-berhane`, `ti-senait`, `ti-haben`, `ti-rahel`, `ti-filimon`, `ti-danait`, `ti-yonas` | yes | yes, with speakers |
+| Swahili | `sw` | `sw-rashid`, `sw-neema`, `sw-hassan`, `sw-bakari`, `sw-amina`, `sw-juma`, `sw-zainab` | yes | yes, no speakers |
+| Hausa | `ha` | `ha-mustapha`, `ha-sani`, `ha-usman`, `ha-musa` | not yet: use `voice.generate` | yes, with speakers |
+| Sidama | `sid` | `sid-tigist`, `sid-desta`, `sid-bereket`, `sid-selam`, `sid-alemu` | not yet: use `voice.generate` | yes, with speakers |
+| Wolaytta | `wal` | `wal-tona`, `wal-almaz`, `wal-amado`, `wal-gobe`, `wal-hiwot` | not yet: use `voice.generate` | yes, with speakers |
+<!-- languages:end -->
 
-Voice generation and real-time sessions support these three languages. Other
-language codes are rejected locally before any API request or socket connection.
-Use a matching language and voice ID. `voices.list` returns this three-language
-catalog so you can choose another available voice.
+`voice.generate`, `voice.estimate`, batches and `voices.list` take all seven languages. `voice.stream` and
+`realtime` take `am`, `om`, `ti` and `sw`. A voice ID is `<language>-<name>` and must match the request's
+`language` (`sid-tigist` with `language="sid"`); anything else is rejected locally before any request or socket.
+`addisai.VOICES` and `addisai.DEFAULT_VOICES` mirror the public catalog for offline checks; `voices.list` is the
+source of truth and also returns each voice's name and preview.
 
-Tigrinya ships seven native voices: `ti-berhane` (default), `ti-senait`, `ti-haben`,
-`ti-rahel`, `ti-filimon`, `ti-danait` and `ti-yonas`. Tigrinya is also accepted by
-chat (`language="ti"`), speech-to-text and translation below.
+```python
+from addisai import DEFAULT_VOICES
+
+samples = {
+    "sw": "Habari, karibu sana. Leo ni siku nzuri ya kujifunza kitu kipya pamoja.",
+    "ha": "Barka da zuwa. Yau rana ce mai kyau don koyon sabon abu tare.",
+    "sid": "Kunino babbaxxinno sidaamu budu tima, adonna shaanu babbaxxinno sidaamu budi sagale leeltawo yaate.",
+    "wal": "Giyaa giddon daro asay shammes, baassi koshshiyabaa bayzzes.",
+}
+for language, text in samples.items():
+    addis.voice.generate(voice_id=DEFAULT_VOICES[language], text=text, language=language).to_file(f"{language}.mp3")
+```
+
+Chat and translation take `am`, `om` and `ti` (see below); Scribe takes all seven.
 
 ## Voice (text‑to‑speech)
 
@@ -121,7 +139,8 @@ Use `append()` and `commit()` to buffer a complete generated utterance before
 synthesis. For early WAV pieces, select `audio_format="wav_mp3"`, iterate raw
 `audio.delta` events and use `decode_realtime_audio(event)`; play each piece
 according to its `format`. `speak()` yields concatenatable MP3 and requires an
-`mp3` session. Use any matching voice and language pair from the Languages table.
+`mp3` session. Streaming and real time take `am`, `om`, `ti` and `sw`; use any matching voice and language pair
+from the Languages table.
 HTTP streams support MP3 only. Keep request IDs stable when recovering a failed
 request in a new session to avoid a second charge; use a fresh ID for each new
 utterance.
@@ -134,6 +153,7 @@ Run the same example with any of the documented languages:
 ADDIS_VOICE_LANGUAGE=am ADDIS_VOICE_ID=am-hamen python examples/realtime.py "ሰላም፣ እንኳን ወደ አዲስ ኤአይ በደህና መጡ።"
 ADDIS_VOICE_LANGUAGE=om ADDIS_VOICE_ID=om-bikila python examples/realtime.py "Nagaa, gara Addis AI baga nagaan dhuftan."
 ADDIS_VOICE_LANGUAGE=ti ADDIS_VOICE_ID=ti-berhane python examples/realtime.py "ሰላም፣ እንቋዕ ናብ ኣዲስ ኤኣይ ብደሓን መጻእኩም።"
+ADDIS_VOICE_LANGUAGE=sw ADDIS_VOICE_ID=sw-rashid python examples/realtime.py "Habari, karibu sana. Leo ni siku nzuri ya kujifunza kitu kipya pamoja."
 ```
 
 ## Batches (2.5 ETB a minute, within 24 hours)
@@ -163,7 +183,8 @@ for result in client.batches.results(done["id"]):
 ```
 
 Batches support the same languages and voices as `voice.generate`: Amharic
-(`am`), Afaan Oromo (`om`) and Tigrinya (`ti`, with any of its seven voices).
+(`am`), Afaan Oromo (`om`), Tigrinya (`ti`), Swahili (`sw`), Hausa (`ha`), Sidama
+(`sid`) and Wolaytta (`wal`), with any voice from the Languages table.
 Each request's `voice_id` must match its `language`; other languages raise
 `AddisAIError` before anything is uploaded.
 

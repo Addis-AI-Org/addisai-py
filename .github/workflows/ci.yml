@@ -7,7 +7,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Python 3.8 and 3.9 are not built for Ubuntu 26.04 (the new ubuntu-latest).
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -19,3 +20,16 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: pytest -q
+
+  drift:
+    # Public endpoints only (no key, no cost): fails when the live API's languages differ from the SDK's.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q tests/contract/test_live_catalog.py
+        env:
+          ADDIS_DRIFT: "1"

@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional
 
 from .._exceptions import AddisAIError
 from .._idempotency import ulid
-from .._languages import validate_voice_language
+from .._languages import validate_voice_id, validate_voice_language
 from .._transport import Options, Transport
 from .files import Files
 
@@ -19,8 +19,8 @@ def to_batch_jsonl(requests: Iterable[Dict[str, Any]]) -> str:
     ``custom_id``, ``text``, ``voice_id``, ``language`` and optionally
     ``output_format`` (default ``"mp3_44100"``) and ``voice_settings``.
 
-    ``language`` is ``"am"``, ``"om"`` or ``"ti"`` (Tigrinya) with a matching
-    ``voice_id`` such as ``"ti-berhane"``; anything else raises before upload."""
+    ``language`` is ``"am"``, ``"om"``, ``"ti"``, ``"sw"``, ``"ha"``, ``"sid"`` or ``"wal"`` with a matching
+    ``voice_id`` such as ``"sid-tigist"``; anything else raises before upload."""
     seen = set()
     lines = []
     for request in requests:
@@ -29,6 +29,7 @@ def to_batch_jsonl(requests: Iterable[Dict[str, Any]]) -> str:
             raise AddisAIError(f'custom_id "{custom_id}" is used twice.')
         seen.add(custom_id)
         validate_voice_language(request.get("language"))
+        validate_voice_id(request.get("voice_id"), request.get("language"))
         body: Dict[str, Any] = {
             "text": request["text"],
             "voice_id": request["voice_id"],
