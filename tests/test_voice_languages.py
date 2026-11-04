@@ -9,7 +9,6 @@ from addisai import (DEFAULT_VOICES, REALTIME_LANGUAGES, VOICE_LANGUAGES, VOICES
                      RealtimeLanguage, VoiceLanguage, connect_realtime, to_batch_jsonl)
 
 ALL_VOICES = [(language, voice_id) for language, voices in VOICES.items() for voice_id in voices]
-NOT_REALTIME = [code for code in VOICE_LANGUAGES if code not in REALTIME_LANGUAGES]
 
 
 def client(handler):
@@ -18,7 +17,7 @@ def client(handler):
 
 def test_language_constants_match_their_types():
     assert typing.get_args(VoiceLanguage) == VOICE_LANGUAGES == ("am", "om", "ti", "sw", "ha", "sid", "wal")
-    assert typing.get_args(RealtimeLanguage) == REALTIME_LANGUAGES == ("am", "om", "ti", "sw")
+    assert typing.get_args(RealtimeLanguage) == REALTIME_LANGUAGES == VOICE_LANGUAGES
     assert set(VOICES) == set(VOICE_LANGUAGES)
 
 
@@ -106,21 +105,6 @@ def test_realtime_languages_stream_and_open_sessions(language):
         addis.voice.stream(voice_id=voice_id, language=language, text="A complete sentence.").read()
         addis.realtime.create_session(voice_id=voice_id, language=language)
     assert calls == ["/api/v1/voice/generations/stream", "/api/v1/realtime/sessions"]
-
-
-@pytest.mark.parametrize("language", NOT_REALTIME)
-def test_generate_only_languages_explain_that_streaming_is_not_offered(language):
-    handler = Mock()
-    factory = Mock()
-    voice_id = DEFAULT_VOICES[language]
-    with client(handler) as addis:
-        for call in (lambda: addis.voice.stream(voice_id=voice_id, language=language, text="A complete sentence."),
-                     lambda: addis.realtime.create_session(voice_id=voice_id, language=language),
-                     lambda: connect_realtime({"language": language}, websocket_factory=factory)):
-            with pytest.raises(AddisAIError, match="Use voice.generate"):
-                call()
-    handler.assert_not_called()
-    factory.assert_not_called()
 
 
 @pytest.mark.parametrize("language,voice_id", [("sid", "wal-tona"), ("ti", "am-hamen"),

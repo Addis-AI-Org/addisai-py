@@ -7,7 +7,7 @@ import wave
 
 import pytest
 
-from addisai import DEFAULT_VOICES, REALTIME_LANGUAGES, VOICE_LANGUAGES, VOICES, AddisAI, AddisAIError, ulid
+from addisai import DEFAULT_VOICES, REALTIME_LANGUAGES, VOICE_LANGUAGES, VOICES, AddisAI, ulid
 
 KEY = os.environ.get("ADDIS_CONTRACT_API_KEY")
 pytestmark = pytest.mark.skipif(not KEY, reason="set ADDIS_CONTRACT_API_KEY to run live contract tests")
@@ -87,9 +87,3 @@ def test_live_session_transcribes_each_language(addis, speech, language):
 def test_streaming_languages_stream(addis, language):
     audio = addis.voice.stream(voice_id=DEFAULT_VOICES[language], text=TEXT[language], language=language)
     assert len(audio.read()) > 4000
-
-
-@pytest.mark.parametrize("language", [code for code in VOICE_LANGUAGES if code not in REALTIME_LANGUAGES])
-def test_streaming_refuses_generate_only_languages_locally(addis, language):
-    with pytest.raises(AddisAIError, match="Use voice.generate"):
-        addis.voice.stream(voice_id=DEFAULT_VOICES[language], text=TEXT[language], language=language)

@@ -18,7 +18,7 @@ class Realtime:
 
     def create_session(self, *, voice_id: str, language: RealtimeLanguage, audio_format: str = "mp3",
                        max_text_characters: int = 5000, max_audio_seconds: Optional[int] = None, request_options: Optional[Options] = None) -> Dict[str, Any]:
-        """Create a voice-scoped, one-use ticket valid for 60 seconds. Real time covers am, om, ti and sw."""
+        """Create a voice-scoped, one-use ticket valid for 60 seconds. Real time covers every voice language."""
         validate_realtime_language(language)
         validate_voice_id(voice_id, language)
         return unwrap_data(self._transport.request("POST", "/api/v1/realtime/sessions",
