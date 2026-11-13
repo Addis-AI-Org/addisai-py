@@ -1,4 +1,4 @@
-"""Addis Scribe transcription (Amharic, Afaan Oromo, Tigrinya, Hausa, Sidama, Wolaytta and Swahili).
+"""Addis Scribe transcription (Amharic, Afaan Oromo, Tigrinya, Hausa, Sidama, Wolaytta, Swahili and English).
 
 Account credentials stay on the application server.
 """
@@ -60,7 +60,7 @@ def _language(value):
         return {}
     if not isinstance(value, str) or not value:
         raise AddisAIError('Scribe language must be "am" (Amharic), "om" (Afaan Oromo), "ti" (Tigrinya), '
-                           '"ha" (Hausa), "sid" (Sidama), "wal" (Wolaytta) or "sw" (Swahili).')
+                           '"ha" (Hausa), "sid" (Sidama), "wal" (Wolaytta), "sw" (Swahili) or "en" (English).')
     return {"language": value}
 
 
@@ -226,7 +226,7 @@ class Scribe:
         ``speakers`` count to the result.
 
         ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
-        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta), ``"sw"`` (Swahili) or ``"en"`` (English); all but Amharic are turbo
         only. The default ``None`` sends no ``language`` parameter, which means Amharic.
         """
         params = {**_params(backend, chunk, request_id), **_timestamps(timestamps), **_speakers(speakers, backend),
@@ -272,7 +272,7 @@ class Scribe:
         result after an interruption. Paid steps are never retried automatically.
 
         ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
-        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta), ``"sw"`` (Swahili) or ``"en"`` (English); all but Amharic are turbo
         only. The default ``None`` sends no ``language`` parameter, which means Amharic.
 
         Interrupting the upload (``KeyboardInterrupt``, e.g. Ctrl-C) cancels the job (``jobs.cancel``)
@@ -317,7 +317,7 @@ class Scribe:
         use transcribe().
 
         ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
-        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta), ``"sw"`` (Swahili) or ``"en"`` (English); all but Amharic are turbo
         only. The default ``None`` sends no ``language`` parameter, which means Amharic.
         """
         if speakers is True:
@@ -339,7 +339,7 @@ class Scribe:
         """Create a one-use ticket on your server, with no automatic issuance retries.
 
         ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
-        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta), ``"sw"`` (Swahili) or ``"en"`` (English); all but Amharic are turbo
         only. It is sent in the JSON body; the default ``None`` leaves it out, which means Amharic.
         """
         body = {**_params(backend, chunk, request_id), **_language(language)}
@@ -377,7 +377,7 @@ class ScribeJobs:
         through ``create`` and ``put_part``.
 
         ``language`` is a ``ScribeLanguage``: ``"am"`` (Amharic), ``"om"`` (Afaan Oromo), ``"ti"`` (Tigrinya),
-        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta) or ``"sw"`` (Swahili); all but Amharic are turbo
+        ``"ha"`` (Hausa), ``"sid"`` (Sidama), ``"wal"`` (Wolaytta), ``"sw"`` (Swahili) or ``"en"`` (English); all but Amharic are turbo
         only. The default ``None`` sends no ``language`` parameter, which means Amharic.
         """
         params = _job_params(backend, chunk, request_id, timestamps, speakers, language)

@@ -254,7 +254,7 @@ Streaming is beta and not available with tools.
 ## Addis Scribe
 
 Scribe transcribes **Amharic** (`am`, the default), **Afaan Oromo** (`om`), **Tigrinya** (`ti`), **Hausa** (`ha`),
-**Sidama** (`sid`), **Wolaytta** (`wal`) and **Swahili** (`sw`). Choose
+**Sidama** (`sid`), **Wolaytta** (`wal`), **Swahili** (`sw`) and **English** (`en`). Choose
 `backend="turbo"` (default) or `backend="standard"`; both bill the same character rate.
 Save a request ID before sending audio; recover it after an interrupted response.
 
@@ -308,6 +308,12 @@ with AddisAI() as addis:
     with addis.scribe.connect(language="ti", request_id=ulid()) as live:  # live Tigrinya session
         ...  # send_audio(frame) / finish() as in "Live audio" below
 ```
+
+### English
+
+Pass `language="en"` to any Scribe call to transcribe English: uploads, live sessions, word timestamps,
+captions, speaker labels and long files, on the turbo backend (the default), at the same character rate. Results carry
+`"en"` and the model `addis-scribe-english-streaming`.
 
 ### Hausa, Sidama, Wolaytta and Swahili
 
