@@ -34,7 +34,7 @@ def recording(seen, response):
 
 
 def test_scribe_language_alias_lists_every_scribe_language():
-    assert typing.get_args(ScribeLanguage) == ("am", "om", "ti", "ha", "sid", "wal", "sw")
+    assert typing.get_args(ScribeLanguage) == ("am", "om", "ti", "ha", "sid", "wal", "sw", "en")
 
 
 @LANGUAGES
