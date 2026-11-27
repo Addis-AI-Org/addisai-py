@@ -45,9 +45,10 @@ SttLanguage = Literal["am", "om", "ti", "en", "ha", "sw"]
 
 #: Languages supported by Addis Scribe (transcription, streaming, live sessions, long-audio jobs).
 #: ``"am"`` Amharic (the default), ``"om"`` Afaan Oromo, ``"ti"`` Tigrinya, ``"ha"`` Hausa, ``"sid"`` Sidama,
-#: ``"wal"`` Wolaytta, ``"sw"`` Swahili and ``"en"`` English. Every language but Amharic runs on the turbo backend only, and
-#: Swahili has no speaker labels (``capabilities()["languages"]["sw"]["speakers"]`` is ``False``).
-ScribeLanguage = Literal["am", "om", "ti", "ha", "sid", "wal", "sw", "en"]
+#: ``"wal"`` Wolaytta, ``"sw"`` Swahili, ``"en"`` English and ``"fr"`` French. Every language but Amharic runs on the
+#: turbo backend only, and Swahili and French have no speaker labels (``capabilities()["languages"]["sw"]["speakers"]``
+#: and ``capabilities()["languages"]["fr"]["speakers"]`` are ``False``).
+ScribeLanguage = Literal["am", "om", "ti", "ha", "sid", "wal", "sw", "en", "fr"]
 
 #: Languages supported for translation.
 TranslateLanguage = Literal["am", "om", "ti", "en"]

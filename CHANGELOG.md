@@ -7,6 +7,10 @@
   Results carry `"en"` and the model `addis-scribe-english-streaming`. English runs on the turbo backend only, with
   speaker labels, word timestamps, captions and long files, at the same per-character rate. `ScribeLanguage` now
   includes `"en"`. (Earlier versions already pass `language="en"` through to the API.)
+- **Scribe transcribes French:** pass `language="fr"` to the same calls. Results carry `"fr"` and the model
+  `addis-scribe-french-streaming`. French runs on the turbo backend only, with word timestamps, captions and long files
+  at the same per-character rate, but no speaker labels. `ScribeLanguage` now includes `"fr"`. (Earlier versions
+  already pass `language="fr"` through to the API.)
 
 ## 0.14.0
 

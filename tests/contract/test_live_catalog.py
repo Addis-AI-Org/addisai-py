@@ -22,7 +22,7 @@ def get(path):
 def test_scribe_languages_match_the_sdk():
     live = get("/api/v1/scribe")["languages"]
     assert set(live) == set(typing.get_args(ScribeLanguage))
-    assert {code for code, info in live.items() if not info["speakers"]} == {"sw"}
+    assert {code for code, info in live.items() if not info["speakers"]} == {"sw", "fr"}
     assert {code for code, info in live.items() if "standard" in info["backends"]} == {"am"}
 
 
