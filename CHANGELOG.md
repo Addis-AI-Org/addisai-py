@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.0 (2026-11-27)
 
 - **Scribe transcribes English:** pass `language="en"` to `scribe.transcribe`, `scribe.stream`,
   `scribe.create_session` / `scribe.connect` (live), `scribe.transcribe_long` and `scribe.jobs.upload` / `jobs.create`.
